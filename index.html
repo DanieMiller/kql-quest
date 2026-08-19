@@ -136,6 +136,21 @@ a, .link{color:var(--cyan);}
 .sidebar-tab-badge{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:10px;background:var(--panel2);color:var(--muted);}
 .sidebar-tab-badge.done{background:rgba(57,255,136,.15);color:var(--green);}
 .dashboard-main{min-width:0;}
+.leaderboard-widget{background:var(--panel);border:1px solid var(--amber);border-radius:10px;padding:12px;margin-top:6px;}
+.leaderboard-head{font-family:var(--disp);font-weight:700;color:var(--amber);font-size:12px;letter-spacing:.04em;margin-bottom:8px;}
+.leaderboard-metrics{display:flex;gap:5px;margin-bottom:8px;}
+.lb-metric-btn{flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:5px 0;font-size:13px;color:var(--muted);}
+.lb-metric-btn.active{border-color:var(--amber);background:rgba(255,176,32,.12);}
+.leaderboard-metric-label{font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px;}
+.leaderboard-rows{display:flex;flex-direction:column;gap:3px;}
+.lb-row{display:grid;grid-template-columns:26px 1fr auto;gap:6px;font-size:11.5px;padding:4px 6px;border-radius:5px;color:var(--muted);}
+.lb-row.you{background:rgba(255,176,32,.12);color:var(--amber);font-weight:700;}
+.lb-rank{font-family:var(--mono);color:var(--muted2);}
+.lb-row.you .lb-rank{color:var(--amber);}
+.lb-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lb-value{font-family:var(--mono);}
+.lb-divider{text-align:center;color:var(--muted2);font-size:10px;}
+.leaderboard-note{margin-top:8px;font-size:9.5px;color:var(--muted2);line-height:1.4;}
 .daily-hero{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
 .daily-hero-icon{font-size:36px;filter:drop-shadow(0 0 10px rgba(255,176,32,.5));}
 .dashboard-title{font-family:var(--disp);font-size:26px;font-weight:700;letter-spacing:.04em;}
@@ -1885,6 +1900,37 @@ Object.keys(DB).forEach(t => { TABLE_COLUMNS[t] = DB[t].length ? Object.keys(DB[
 
 const STORAGE_KEY = 'kqlquest_profile_v1';
 
+// ---------------- in-universe SOC leaderboard ----------------
+// NOTE: this is a purely local, single-player app with no backend/server, so there is no way
+// to see real other people's stats. This is a fictional "leaderboard" of fellow Nightwave
+// Dynamics analysts (flavor/gamification only) with your own real stats inserted and ranked
+// alongside them — not a live multiplayer leaderboard.
+const LEADERBOARD_NPCS = [
+  { name: 'B. WONG', bestStreak: 21, dailyQuests: 30, xp: 15400, badges: 17 },
+  { name: 'L. COHEN', bestStreak: 17, dailyQuests: 25, xp: 12100, badges: 14 },
+  { name: 'K. TRAN', bestStreak: 14, dailyQuests: 22, xp: 9800, badges: 12 },
+  { name: 'J. KIM', bestStreak: 13, dailyQuests: 20, xp: 9100, badges: 11 },
+  { name: 'R. PATEL', bestStreak: 11, dailyQuests: 18, xp: 8600, badges: 10 },
+  { name: 'A. SMITH', bestStreak: 9, dailyQuests: 15, xp: 7200, badges: 9 },
+  { name: 'M. GARCIA', bestStreak: 6, dailyQuests: 10, xp: 4300, badges: 6 },
+  { name: 'D. NGUYEN', bestStreak: 4, dailyQuests: 7, xp: 2900, badges: 4 },
+];
+const LEADERBOARD_METRICS = [
+  { key: 'bestStreak', label: 'Best Streak', icon: '🔥', fmt: v => `${v}` },
+  { key: 'dailyQuests', label: 'Daily Quests', icon: '⚡', fmt: v => `${v}` },
+  { key: 'xp', label: 'Total XP', icon: '⭐', fmt: v => v.toLocaleString() },
+  { key: 'badges', label: 'Badges', icon: '🏅', fmt: v => `${v}` },
+];
+function computeLeaderboard(metric) {
+  const p = state.player;
+  const you = {
+    name: p.name ? `${p.name} (you)` : 'YOU', isPlayer: true,
+    bestStreak: p.bestStreak, dailyQuests: Object.keys(p.dailyDone).length, xp: p.xp, badges: p.badges.length,
+  };
+  const all = [...LEADERBOARD_NPCS, you].sort((a, b) => b[metric] - a[metric]);
+  return all.map((row, i) => ({ ...row, rank: i + 1 }));
+}
+
 function freshPlayer() {
   return {
     name: '',
@@ -1921,6 +1967,7 @@ let state = {
   levelUpFrom: null,
   showResetConfirm: false,
   dashboardTab: 'training',   // 'training' | 'daily' | 'casefiles'
+  leaderboardMetric: 'bestStreak',
   currentCaseId: null,
   caseLastRows: null,
   caseLastError: null,
@@ -2418,6 +2465,35 @@ function heroLineupSvg() {
   </svg>`;
 }
 
+function renderLeaderboardWidget() {
+  const metric = state.leaderboardMetric;
+  const metricCfg = LEADERBOARD_METRICS.find(m => m.key === metric) || LEADERBOARD_METRICS[0];
+  const rows = computeLeaderboard(metric);
+  const top = rows.slice(0, 5);
+  const youRow = rows.find(r => r.isPlayer);
+  const youInTop = top.some(r => r.isPlayer);
+  return `<div class="leaderboard-widget">
+    <div class="leaderboard-head">🏆 SOC LEADERBOARD</div>
+    <div class="leaderboard-metrics">
+      ${LEADERBOARD_METRICS.map(m => `<button class="lb-metric-btn ${m.key === metric ? 'active' : ''}" data-action="lb-metric" data-metric="${m.key}" title="${esc(m.label)}">${m.icon}</button>`).join('')}
+    </div>
+    <div class="leaderboard-metric-label">${metricCfg.icon} ${esc(metricCfg.label)}</div>
+    <div class="leaderboard-rows">
+      ${top.map(r => `<div class="lb-row ${r.isPlayer ? 'you' : ''}">
+        <span class="lb-rank">#${r.rank}</span>
+        <span class="lb-name">${esc(r.name)}</span>
+        <span class="lb-value">${metricCfg.fmt(r[metric])}</span>
+      </div>`).join('')}
+      ${!youInTop && youRow ? `<div class="lb-divider">···</div><div class="lb-row you">
+        <span class="lb-rank">#${youRow.rank}</span>
+        <span class="lb-name">${esc(youRow.name)}</span>
+        <span class="lb-value">${metricCfg.fmt(youRow[metric])}</span>
+      </div>` : ''}
+    </div>
+    <div class="leaderboard-note">Fellow Nightwave analysts (in-game flavor) — this app has no live multiplayer backend.</div>
+  </div>`;
+}
+
 function renderDashboard() {
   const p = state.player;
   const tab = state.dashboardTab || 'training';
@@ -2457,6 +2533,7 @@ function renderDashboard() {
           <span class="sidebar-tab-icon">🗂️</span><span class="sidebar-tab-label">Case Files</span>
           <span class="sidebar-tab-badge">${solvedCases}/${CASE_FILES.length}</span>
         </button>
+        ${renderLeaderboardWidget()}
       </div>
       <div class="dashboard-main">${mainContent}</div>
     </div>
@@ -3242,12 +3319,14 @@ function doAction(action, el) {
       const input = document.getElementById('callsign-input');
       state.player.name = (input && input.value.trim()) || 'ANALYST';
       savePlayer();
-      goToMission(nextMissionId());
+      state.screen = 'dashboard';
+      state.dashboardTab = 'training';
       render();
       break;
     }
     case 'goto-dashboard': state.screen = 'dashboard'; render(); break;
     case 'dash-tab': state.dashboardTab = el.dataset.tab; render(); break;
+    case 'lb-metric': state.leaderboardMetric = el.dataset.metric; render(); break;
     case 'goto-profile': state.screen = 'profile'; render(); break;
     case 'goto-badges': state.screen = 'badges'; render(); break;
     case 'goto-skilltree': state.screen = 'skilltree'; render(); break;
@@ -3352,12 +3431,7 @@ async function main() {
   // backfill any missing fields for players saved by an earlier version of the schema
   const fresh = freshPlayer();
   Object.keys(fresh).forEach(k => { if (state.player[k] === undefined) state.player[k] = fresh[k]; });
-  if (!state.player.name) {
-    state.screen = 'onboarding';
-  } else {
-    const nm = nextMissionId();
-    if (nm) goToMission(nm); else state.screen = 'dashboard';
-  }
+  state.screen = state.player.name ? 'dashboard' : 'onboarding';
   render();
 }
 
