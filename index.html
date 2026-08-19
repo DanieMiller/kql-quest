@@ -118,6 +118,26 @@ a, .link{color:var(--cyan);}
 .dashboard-hero-tag{font-family:var(--mono);font-size:11px;letter-spacing:.25em;color:var(--cyan);opacity:.85;}
 .dashboard-hero-title{font-family:var(--disp);font-weight:700;font-size:26px;letter-spacing:.05em;margin-top:4px;text-shadow:0 0 18px rgba(43,232,255,.4);}
 .dashboard-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+
+/* ---------------- dashboard sidebar / tabs ---------------- */
+.dashboard-layout{display:grid;grid-template-columns:210px 1fr;gap:20px;align-items:start;}
+@media (max-width:800px){.dashboard-layout{grid-template-columns:1fr;}}
+.dashboard-sidebar{display:flex;flex-direction:column;gap:8px;position:sticky;top:70px;}
+@media (max-width:800px){.dashboard-sidebar{position:static;flex-direction:row;overflow-x:auto;}}
+.sidebar-tab{
+  display:flex;align-items:center;gap:10px;text-align:left;background:var(--panel);border:1px solid var(--border);
+  border-radius:10px;padding:12px 14px;color:var(--muted);font-family:var(--disp);font-weight:600;font-size:13.5px;
+  transition:all .15s;white-space:nowrap;
+}
+.sidebar-tab:hover{border-color:var(--cyan);color:var(--text);}
+.sidebar-tab.active{background:linear-gradient(135deg,rgba(43,232,255,.14),rgba(43,232,255,.02));border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 14px rgba(43,232,255,.15);}
+.sidebar-tab-icon{font-size:16px;}
+.sidebar-tab-label{flex:1;}
+.sidebar-tab-badge{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:10px;background:var(--panel2);color:var(--muted);}
+.sidebar-tab-badge.done{background:rgba(57,255,136,.15);color:var(--green);}
+.dashboard-main{min-width:0;}
+.daily-hero{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
+.daily-hero-icon{font-size:36px;filter:drop-shadow(0 0 10px rgba(255,176,32,.5));}
 .dashboard-title{font-family:var(--disp);font-size:26px;font-weight:700;letter-spacing:.04em;}
 .dashboard-sub{color:var(--muted);font-size:13px;font-family:var(--mono);}
 .review-banner{background:linear-gradient(90deg,rgba(183,107,255,.15),rgba(183,107,255,.03));border:1px solid var(--purple);border-radius:8px;padding:12px 16px;margin-bottom:12px;cursor:pointer;font-size:14px;}
@@ -152,6 +172,35 @@ a, .link{color:var(--cyan);}
 .case-q-hint{margin-top:6px;font-size:12px;color:var(--amber);}
 .case-q-answer{margin-top:6px;font-size:12px;color:var(--cyan);background:var(--bg2);border-radius:6px;padding:6px 8px;}
 .case-report-actions{display:flex;gap:10px;margin-top:8px;}
+
+/* ---------------- Sentinel-style incident record ---------------- */
+.incident-record{background:#0a0f16;border:1px solid var(--border-lit);border-radius:10px;padding:14px;margin-bottom:14px;}
+.incident-record-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
+.incident-id{font-family:var(--mono);font-weight:700;color:var(--text);font-size:13px;}
+.sev-pill,.status-pill{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.05em;padding:3px 9px;border-radius:4px;}
+.sev-pill.sev-high{background:rgba(255,91,91,.15);color:var(--red);border:1px solid var(--red);}
+.sev-pill.sev-med{background:rgba(255,176,32,.15);color:var(--amber);border:1px solid var(--amber);}
+.sev-pill.sev-low{background:rgba(43,232,255,.15);color:var(--cyan);border:1px solid var(--cyan);}
+.status-pill.status-new{background:var(--panel2);color:var(--muted);border:1px solid var(--border-lit);}
+.status-pill.status-active{background:rgba(43,232,255,.12);color:var(--cyan);border:1px solid var(--cyan);}
+.status-pill.status-closed{background:rgba(57,255,136,.12);color:var(--green);border:1px solid var(--green);}
+.incident-meta-row{display:flex;gap:16px;font-size:11.5px;color:var(--muted);margin-bottom:10px;font-family:var(--mono);}
+.incident-section{margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);}
+.incident-section-head{font-family:var(--disp);font-weight:700;font-size:11.5px;letter-spacing:.05em;color:var(--muted);margin-bottom:6px;}
+.incident-alert-row{display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0;}
+.alert-sev-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.alert-sev-dot.sev-high{background:var(--red);box-shadow:0 0 6px var(--red);}
+.alert-sev-dot.sev-med{background:var(--amber);box-shadow:0 0 6px var(--amber);}
+.alert-sev-dot.sev-low{background:var(--cyan);box-shadow:0 0 6px var(--cyan);}
+.alert-name{flex:1;color:var(--text);}
+.alert-product{font-family:var(--mono);font-size:10px;color:var(--muted2);}
+.entity-chips,.tactic-chips{display:flex;flex-wrap:wrap;gap:6px;}
+.entity-chip{background:var(--panel2);border:1px solid var(--purple);border-radius:5px;padding:4px 9px;font-size:11.5px;color:var(--text);}
+.entity-chip b{color:var(--purple);}
+.tactic-chip{background:rgba(255,63,164,.1);border:1px solid var(--magenta);color:var(--magenta);border-radius:5px;padding:3px 8px;font-size:10.5px;font-family:var(--mono);}
+.technique-list{margin-top:6px;}
+.technique-row{font-size:11.5px;color:var(--muted);padding:2px 0;}
+.technique-id{font-family:var(--mono);color:var(--cyan);margin-right:8px;}
 .daily-card{background:var(--panel);border:1px solid var(--border-lit);border-radius:10px;padding:14px 18px;margin-bottom:20px;}
 .daily-card.done{opacity:.6;}
 .daily-head{font-family:var(--disp);font-weight:700;color:var(--amber);margin-bottom:4px;}
@@ -1626,6 +1675,29 @@ const CASE_FILES = [
     datasets: ['SigninLogs', 'DeviceProcessEvents', 'DeviceNetworkEvents', 'DeviceFileEvents'],
     briefing: `📁 CASE FILE — THE NIGHTWAVE BREACH\n\nThe SOC has closed out the technical timeline, but the incident commander needs a proper report before this goes to leadership and legal. You have full access to every log source. No guided steps this time — investigate however you see fit, then answer the six questions every incident report must answer.`,
     startingTip: 'Try starting with: SigninLogs | where ResultType != 0 | summarize count() by UserPrincipalName',
+    incident: {
+      incidentId: 'INC-2114',
+      severity: 'High',
+      openedLabel: 'Opened ~3 hours ago',
+      owner: 'Unassigned — assigned to you on open',
+      alerts: [
+        { name: 'Multiple failed sign-in attempts', product: 'Microsoft Entra ID Protection', severity: 'Medium' },
+        { name: 'Sign-in from an unfamiliar location followed by success', product: 'Microsoft Entra ID Protection', severity: 'High' },
+        { name: 'Suspicious process launched by an Office application', product: 'Microsoft Defender for Endpoint', severity: 'High' },
+        { name: 'New scheduled task created on a workstation', product: 'Microsoft Defender for Endpoint', severity: 'Medium' },
+      ],
+      entities: [
+        { type: 'Account', value: 'jchen@nightwave.io' },
+        { type: 'Device', value: 'FIN-WKS-014' },
+      ],
+      tactics: ['Initial Access', 'Execution', 'Persistence', 'Lateral Movement'],
+      techniques: [
+        { id: 'T1566.001', name: 'Phishing: Spearphishing Attachment' },
+        { id: 'T1059.001', name: 'Command and Scripting Interpreter: PowerShell' },
+        { id: 'T1053.005', name: 'Scheduled Task/Job: Scheduled Task' },
+        { id: 'T1021.002', name: 'Remote Services: SMB/Windows Admin Shares' },
+      ],
+    },
     questions: {
       who: {
         prompt: 'WHO was the compromised user account?',
@@ -1681,6 +1753,24 @@ const CASE_FILES = [
     datasets: ['SigninLogs'],
     briefing: `📁 CASE FILE — THE LOGIN STORM\n\nOvernight, five different employees received "unusual sign-in activity" notifications almost simultaneously. None of them were traveling or working late. Investigate the sign-in logs and write up what happened.`,
     startingTip: 'Try starting with: SigninLogs | where ResultType != 0 | summarize count() by IPAddress',
+    incident: {
+      incidentId: 'INC-2119',
+      severity: 'Medium',
+      openedLabel: 'Opened ~18 hours ago',
+      owner: 'Unassigned — assigned to you on open',
+      alerts: [
+        { name: 'Password spray attack detected against multiple accounts', product: 'Microsoft Entra ID Protection', severity: 'Medium' },
+        { name: 'Sign-in attempts from an anomalous source', product: 'Microsoft Sentinel Analytics', severity: 'Low' },
+      ],
+      entities: [
+        { type: 'Accounts affected', value: '5 accounts' },
+        { type: 'Application', value: 'Office 365 Exchange Online' },
+      ],
+      tactics: ['Credential Access', 'Initial Access'],
+      techniques: [
+        { id: 'T1110.003', name: 'Brute Force: Password Spraying' },
+      ],
+    },
     questions: {
       who: {
         prompt: 'WHO was targeted — name at least one affected account, or describe the group.',
@@ -1830,6 +1920,7 @@ let state = {
   toast: null,             // { type, title, body }
   levelUpFrom: null,
   showResetConfirm: false,
+  dashboardTab: 'training',   // 'training' | 'daily' | 'casefiles'
   currentCaseId: null,
   caseLastRows: null,
   caseLastError: null,
@@ -2329,6 +2420,51 @@ function heroLineupSvg() {
 
 function renderDashboard() {
   const p = state.player;
+  const tab = state.dashboardTab || 'training';
+  const dailySeed = new Date().toISOString().slice(0, 10);
+  const dailyDoneToday = !!p.dailyDone[dailySeed];
+  const solvedCases = CASE_FILES.filter(c => caseProgress(c.id).solved).length;
+
+  let mainContent = '';
+  if (tab === 'daily') mainContent = renderDailyTab();
+  else if (tab === 'casefiles') mainContent = renderCaseFilesTab();
+  else mainContent = renderTrainingTab();
+
+  return `<div class="dashboard">
+    <div class="dashboard-hero">
+      ${heroLineupSvg()}
+      <div class="dashboard-hero-overlay">
+        <div class="dashboard-hero-tag">NIGHTWAVE DYNAMICS SOC</div>
+        <div class="dashboard-hero-title">HUNT. QUERY. INVESTIGATE.</div>
+      </div>
+    </div>
+    <div class="dashboard-header">
+      <div>
+        <div class="dashboard-title">MISSION CONTROL</div>
+        <div class="dashboard-sub">Analyst ${esc(p.name || 'UNKNOWN')} · ${p.completedCount} step${p.completedCount === 1 ? '' : 's'} completed</div>
+      </div>
+    </div>
+    <div class="dashboard-layout">
+      <div class="dashboard-sidebar">
+        <button class="sidebar-tab ${tab === 'training' ? 'active' : ''}" data-action="dash-tab" data-tab="training">
+          <span class="sidebar-tab-icon">🎯</span><span class="sidebar-tab-label">Normal Training</span>
+        </button>
+        <button class="sidebar-tab ${tab === 'daily' ? 'active' : ''}" data-action="dash-tab" data-tab="daily">
+          <span class="sidebar-tab-icon">⚡</span><span class="sidebar-tab-label">Daily Quest</span>
+          ${dailyDoneToday ? '<span class="sidebar-tab-badge done">✓</span>' : '<span class="sidebar-tab-badge">!</span>'}
+        </button>
+        <button class="sidebar-tab ${tab === 'casefiles' ? 'active' : ''}" data-action="dash-tab" data-tab="casefiles">
+          <span class="sidebar-tab-icon">🗂️</span><span class="sidebar-tab-label">Case Files</span>
+          <span class="sidebar-tab-badge">${solvedCases}/${CASE_FILES.length}</span>
+        </button>
+      </div>
+      <div class="dashboard-main">${mainContent}</div>
+    </div>
+  </div>`;
+}
+
+function renderTrainingTab() {
+  const p = state.player;
   const levelNames = { 1: 'KQL RECRUIT', 2: 'DATA TRACKER', 3: 'HUNTER', 4: 'INVESTIGATOR', 5: 'THREAT HUNTER', 6: 'SOC OPERATOR', 7: 'OPERATION NIGHTFALL' };
   const levelColor = { 1: '#39ff88', 2: '#3ec6ff', 3: '#b76bff', 4: '#ffb020', 5: '#ff5b5b', 6: '#8ea3b0', 7: '#ff2ec4' };
   const levelIcon = { 1: '🟢', 2: '🔵', 3: '🟣', 4: '🟠', 5: '🔴', 6: '⚫', 7: '☠️' };
@@ -2347,15 +2483,6 @@ function renderDashboard() {
     </div>`;
   }
 
-  const dailySeed = new Date().toISOString().slice(0, 10);
-  const dailyDone = !!p.dailyDone[dailySeed];
-  const dailyCard = `
-    <div class="daily-card ${dailyDone ? 'done' : ''}">
-      <div class="daily-head">🎯 DAILY MISSION ${dailyDone ? '· COMPLETE' : ''}</div>
-      <div class="daily-body">Identify every device that connected to <code>cdn-analytics-update.net</code> today. (+150 bonus XP, one-time)</div>
-      ${dailyDone ? '' : `<button class="btn btn-ghost" data-action="do-daily">Accept Mission</button>`}
-    </div>`;
-
   const continueBar = nextChallenge ? `
     <div class="continue-bar" data-action="start-mission" data-id="${nextChallenge.id}">
       <div class="continue-glow"></div>
@@ -2367,36 +2494,7 @@ function renderDashboard() {
     </div>` : `
     <div class="continue-bar done-bar"><div class="continue-info"><div class="continue-title">🏆 Campaign complete — you've mastered every mission. Revisit any module below anytime.</div></div></div>`;
 
-  const solvedCases = CASE_FILES.filter(c => caseProgress(c.id).solved).length;
-  const casefileBanner = `
-    <div class="casefile-banner" data-action="goto-casefiles">
-      <div class="casefile-banner-icon">🗂️</div>
-      <div class="continue-info">
-        <div class="continue-label">CASE FILE ARCHIVE</div>
-        <div class="continue-title">Real-world incidents · 5W1H investigation reports · ${solvedCases}/${CASE_FILES.length} closed</div>
-      </div>
-      <button class="btn btn-ghost">Open Archive →</button>
-    </div>`;
-
-  let html = `<div class="dashboard">
-    <div class="dashboard-hero">
-      ${heroLineupSvg()}
-      <div class="dashboard-hero-overlay">
-        <div class="dashboard-hero-tag">NIGHTWAVE DYNAMICS SOC</div>
-        <div class="dashboard-hero-title">HUNT. QUERY. INVESTIGATE.</div>
-      </div>
-    </div>
-    <div class="dashboard-header">
-      <div>
-        <div class="dashboard-title">MISSION CONTROL</div>
-        <div class="dashboard-sub">Analyst ${esc(p.name || 'UNKNOWN')} · ${p.completedCount} step${p.completedCount === 1 ? '' : 's'} completed</div>
-      </div>
-    </div>
-    ${continueBar}
-    ${casefileBanner}
-    ${reviewCard}
-    ${dailyCard}
-    <div class="levels">`;
+  let html = `${continueBar}${reviewCard}<div class="levels">`;
 
   Object.keys(modulesByLevel).sort((a, b) => a - b).forEach(lv => {
     const mods = modulesByLevel[lv];
@@ -2434,9 +2532,61 @@ function renderDashboard() {
     });
     html += `</div></div>`;
   });
-
-  html += `</div></div>`;
+  html += `</div>`;
   return html;
+}
+
+function renderDailyTab() {
+  const p = state.player;
+  const dailySeed = new Date().toISOString().slice(0, 10);
+  const dailyDone = !!p.dailyDone[dailySeed];
+  const doneDates = Object.keys(p.dailyDone).sort().reverse();
+  // count the current consecutive-day streak, walking backward from today
+  let streak = 0;
+  for (let i = 0; ; i++) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    if (p.dailyDone[key]) streak++; else break;
+  }
+  return `
+    <div class="daily-hero">
+      <div class="daily-hero-icon">⚡</div>
+      <div>
+        <div class="section-title" style="margin:0;">DAILY QUEST</div>
+        <div class="casefiles-intro" style="margin:4px 0 0;">One fresh mini-investigation every day. Miss a day and the streak resets — come back daily to keep it alive.</div>
+      </div>
+    </div>
+    <div class="stat-grid" style="margin-bottom:18px;">
+      <div class="stat-box"><div class="stat-num">🔥 ${streak}</div><div class="stat-label">Daily Streak</div></div>
+      <div class="stat-box"><div class="stat-num">${doneDates.length}</div><div class="stat-label">Total Daily Quests Done</div></div>
+    </div>
+    <div class="daily-card ${dailyDone ? 'done' : ''}">
+      <div class="daily-head">🎯 TODAY'S QUEST ${dailyDone ? '· COMPLETE' : ''}</div>
+      <div class="daily-body">Identify every device that connected to <code>cdn-analytics-update.net</code> today. (+150 bonus XP, one-time)</div>
+      ${dailyDone ? '' : `<button class="btn btn-ghost" data-action="do-daily">Accept Mission</button>`}
+    </div>
+    ${doneDates.length ? `<div class="activity-feed" style="margin-top:16px;">
+      <div class="skill-col-head">Daily Quest History</div>
+      ${doneDates.slice(0, 10).map(d => `<div class="activity-row"><span>${esc(d)}</span><span>Daily Quest completed</span><span class="activity-xp">+150 XP</span></div>`).join('')}
+    </div>` : ''}
+  `;
+}
+
+function renderCaseFilesTab() {
+  return `
+    <p class="casefiles-intro">Real-world-style investigations. No guided steps — dig through the full environment with your own queries, then write up the incident using the 5W1H framework every SOC report needs: <b>Who, What, When, Where, Why, How.</b></p>
+    <div class="casefile-grid">
+      ${CASE_FILES.map(c => {
+        const prog = caseProgress(c.id);
+        return `<div class="casefile-card ${prog.solved ? 'solved' : ''}" data-action="open-casefile" data-id="${c.id}">
+          <div class="casefile-card-top"><span>${starRow(c.difficulty)}</span>${prog.solved ? '<span class="tag-done">✅ CLOSED</span>' : ''}</div>
+          <div class="casefile-card-title">${esc(c.title)}</div>
+          <div class="casefile-card-meta">${prog.scored}/6 questions answered</div>
+          <div class="skill-bar"><div class="skill-bar-fill good" style="width:${Math.round(prog.scored / prog.total * 100)}%"></div></div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
 }
 
 
@@ -2756,6 +2906,43 @@ function renderCaseFiles() {
   </div>`;
 }
 
+function renderIncidentRecord(inc, rec) {
+  if (!inc) return '';
+  const sevClass = { High: 'sev-high', Medium: 'sev-med', Low: 'sev-low' };
+  const status = rec.solved ? 'Closed' : (rec.attempts > 0 ? 'Active' : 'New');
+  const statusClass = rec.solved ? 'status-closed' : (rec.attempts > 0 ? 'status-active' : 'status-new');
+  return `<div class="incident-record">
+    <div class="incident-record-top">
+      <span class="incident-id">${esc(inc.incidentId)}</span>
+      <span class="sev-pill ${sevClass[inc.severity] || 'sev-med'}">${esc(inc.severity)} SEVERITY</span>
+      <span class="status-pill ${statusClass}">${status}</span>
+    </div>
+    <div class="incident-meta-row">
+      <span>🕐 ${esc(inc.openedLabel)}</span>
+      <span>👤 ${esc(inc.owner)}</span>
+    </div>
+    <div class="incident-section">
+      <div class="incident-section-head">🚨 TRIGGERED ALERTS (${inc.alerts.length})</div>
+      ${inc.alerts.map(a => `<div class="incident-alert-row">
+        <span class="alert-sev-dot ${sevClass[a.severity] || 'sev-med'}"></span>
+        <span class="alert-name">${esc(a.name)}</span>
+        <span class="alert-product">${esc(a.product)}</span>
+      </div>`).join('')}
+    </div>
+    <div class="incident-section">
+      <div class="incident-section-head">🔗 ENTITIES</div>
+      <div class="entity-chips">
+        ${inc.entities.map(e => `<span class="entity-chip"><b>${esc(e.type)}:</b> ${esc(e.value)}</span>`).join('')}
+      </div>
+    </div>
+    <div class="incident-section">
+      <div class="incident-section-head">🗺️ MITRE ATT&amp;CK</div>
+      <div class="tactic-chips">${inc.tactics.map(t => `<span class="tactic-chip">${esc(t)}</span>`).join('')}</div>
+      <div class="technique-list">${inc.techniques.map(t => `<div class="technique-row"><span class="technique-id">${esc(t.id)}</span>${esc(t.name)}</div>`).join('')}</div>
+    </div>
+  </div>`;
+}
+
 function renderCaseFile() {
   const c = getCaseById(state.currentCaseId);
   if (!c) return renderCaseFiles();
@@ -2799,6 +2986,7 @@ function renderCaseFile() {
       </div>
       <h2 class="briefing-title">${esc(c.title)}</h2>
       <div class="briefing-meta"><span>${starRow(c.difficulty)}</span><span>+${c.xpPerQuestion}/question · +${c.bonusXp} bonus</span>${rec.solved ? '<span class="tag-done">✅ CLOSED</span>' : ''}</div>
+      ${renderIncidentRecord(c.incident, rec)}
       <div class="briefing-story">${nl2br(c.briefing)}</div>
       <div class="briefing-objective">💡 ${esc(c.startingTip)}</div>
       <div class="ds-chips">${colsHtml}</div>
@@ -3059,10 +3247,11 @@ function doAction(action, el) {
       break;
     }
     case 'goto-dashboard': state.screen = 'dashboard'; render(); break;
+    case 'dash-tab': state.dashboardTab = el.dataset.tab; render(); break;
     case 'goto-profile': state.screen = 'profile'; render(); break;
     case 'goto-badges': state.screen = 'badges'; render(); break;
     case 'goto-skilltree': state.screen = 'skilltree'; render(); break;
-    case 'goto-casefiles': state.screen = 'casefiles'; render(); break;
+    case 'goto-casefiles': state.screen = 'dashboard'; state.dashboardTab = 'casefiles'; render(); break;
     case 'open-casefile': {
       state.currentCaseId = el.dataset.id;
       state.caseLastRows = null; state.caseLastError = null; state.caseGrade = null; state.caseShowAnswers = false;
@@ -3118,7 +3307,7 @@ function doAction(action, el) {
     case 'next-mission': {
       const nm = nextMissionId();
       if (nm) { goToMission(nm); render(); }
-      else { state.screen = 'dashboard'; render(); }
+      else { state.screen = 'dashboard'; state.dashboardTab = 'training'; render(); }
       break;
     }
     case 'dismiss-badge': {
@@ -3147,7 +3336,6 @@ function render() {
   else if (state.screen === 'profile') inner = renderProfile();
   else if (state.screen === 'badges') inner = renderBadges();
   else if (state.screen === 'skilltree') inner = renderSkillTree();
-  else if (state.screen === 'casefiles') inner = renderCaseFiles();
   else if (state.screen === 'casefile') inner = renderCaseFile();
   $app().innerHTML = hud + `<div class="screen-body">${inner}</div>` + resetModal;
   wireEvents();
