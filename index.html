@@ -747,7 +747,18 @@ function applyStage(stage, rows, db, letVars, helpers, nowInstant) {
     const aggSpecs = splitTopLevel(aggPart, ',').map(a => {
       const mm = /^([A-Za-z_]\w*)\s*=\s*(.+)$/s.exec(a.trim());
       if (mm) return { name: mm[1], expr: mm[2] };
-      const auto = a.trim().replace(/[()]/g, '_').replace(/[^A-Za-z0-9_]/g, '');
+      // Match real Kusto's auto-naming convention: fnName_argument (e.g. count() -> "count_",
+      // avg(Foo) -> "avg_Foo"), so `summarize count() by X | sort by count_` works as expected.
+      const fnMatch = /^([A-Za-z_]\w*)\s*\(([^)]*)\)$/s.exec(a.trim());
+      let auto;
+      if (fnMatch) {
+        const fnName = fnMatch[1];
+        const argText = fnMatch[2].trim();
+        const argPart = argText ? '_' + argText.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '') : '_';
+        auto = fnName + argPart;
+      } else {
+        auto = a.trim().replace(/[()]/g, '_').replace(/[^A-Za-z0-9_]/g, '');
+      }
       return { name: auto || 'Value', expr: a.trim() };
     });
     const groups = new Map();
