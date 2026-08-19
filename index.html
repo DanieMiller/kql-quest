@@ -411,6 +411,8 @@ a, .link{color:var(--cyan);}
 
 const NOW = new Date('2025-11-14T03:15:00Z'); // fixed "current" instant so ago() is deterministic per session load... actually we want variety per session, so this will be overridden at DB build time.
 
+const KQL_STAGE_KEYWORDS = ['where', 'project', 'project-away', 'project-rename', 'extend', 'summarize', 'distinct', 'sort', 'order', 'take', 'limit', 'top', 'count', 'join', 'union', 'mv-expand', 'search', 'let'];
+
 function makeHelpers(nowInstant) {
   const now = nowInstant;
   function toDate(v) {
@@ -633,6 +635,11 @@ function runQuery(query, db, nowInstant) {
       rows.push(...src.map(r => ({ ...r })));
     }
   } else {
+    // Give a much more useful error when the "table name" actually looks like multiple
+    // lines/words glued together — the classic symptom of a missing `|` between stages.
+    if (/\s/.test(tableToken.trim()) && KQL_STAGE_KEYWORDS.some(kw => new RegExp(`(^|\\s)${kw}(\\s|\\(|$)`, 'i').test(tableToken))) {
+      throw new KqlError(`It looks like you're missing a '|' (pipe) somewhere. KQL requires an explicit pipe before each operator — for example 'TableName | where ... | search ...', not just a line break. The text I tried to read as a table name was: '${tableToken.replace(/\n/g, ' \u21B5 ')}'`);
+    }
     throw new KqlError(`Unknown table '${tableToken}'. Did you spell the table name correctly?`);
   }
 
@@ -2913,6 +2920,14 @@ function acceptSuggestion(ta) {
   const before = ta.value.slice(0, suggestState.start);
   const after = ta.value.slice(suggestState.end);
   let insertText = item.label;
+  if (item.type === 'op') {
+    // Operators start a new pipeline stage — if the user hasn't typed a leading '|' yet
+    // (e.g. they just pressed Enter to a new line), add one automatically so accepting a
+    // suggestion can never silently produce an invalid query.
+    const trimmedBefore = before.replace(/\s+$/, '');
+    const needsPipe = trimmedBefore.length > 0 && !trimmedBefore.endsWith('|');
+    if (needsPipe) insertText = '| ' + insertText;
+  }
   if (item.type === 'op' || item.type === 'kw' || item.type === 'table') insertText += ' ';
   ta.value = before + insertText + after;
   const newCaret = (before + insertText).length;
@@ -3016,6 +3031,12 @@ function goToMission(id) {
   state.levelUpFrom = null;
   const c = getChallengeById(id);
   state._draftQuery = priorQueryForStep(c);
+  // If we carried a query over from the previous step in this module, show its results
+  // immediately instead of leaving the results panel blank until the player re-runs it.
+  if (state._draftQuery) {
+    try { state.lastRunRows = runQuery(state._draftQuery, DB, SESSION_NOW); }
+    catch (e) { state.lastRunRows = null; }
+  }
   state.screen = 'mission';
 }
 
