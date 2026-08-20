@@ -2112,6 +2112,7 @@ let state = {
   dailyLastError: null,
   dailyAttemptResult: null,
   dailyShowSolution: false,
+  dailyXpAwarded: null,
   _dailyDraftQuery: '',
   currentCaseId: null,
   caseLastRows: null,
@@ -2335,8 +2336,12 @@ function submitDailyQuest() {
   state.dailyAttemptResult = grade;
   if (grade.status === 'success' && !state.player.dailyDone[dailySeed]) {
     state.player.dailyDone[dailySeed] = true;
-    state.player.xp += q.xp;
-    logActivity('daily', `Daily Quest: ${q.title}`, q.xp);
+    const hintPenalty = Math.max(0.4, 1 - state.dailyHintLevel * 0.15);
+    const revealPenalty = state.dailyShowSolution ? 0.4 : 1;
+    const xpGained = Math.round(q.xp * hintPenalty * revealPenalty);
+    state.player.xp += xpGained;
+    state.dailyXpAwarded = xpGained;
+    logActivity('daily', `Daily Quest: ${q.title}`, xpGained);
     savePlayer();
   }
 }
@@ -2833,7 +2838,7 @@ function renderDailyQuestScreen() {
     feedbackHtml = `<div class="feedback fail"><div class="feedback-head">⚠️ QUERY FAILED TO RUN</div><pre class="err-msg">${esc(state.dailyLastError)}</pre></div>`;
   } else if (result) {
     if (result.status === 'success') {
-      feedbackHtml = `<div class="feedback success"><div class="feedback-head">🎉 QUEST COMPLETE! <span class="float-xp">+${q.xp} XP</span></div><div class="feedback-body">Nice work — that's today's quest closed out.</div></div>`;
+      feedbackHtml = `<div class="feedback success"><div class="feedback-head">🎉 QUEST COMPLETE! <span class="float-xp">+${state.dailyXpAwarded != null ? state.dailyXpAwarded : q.xp} XP</span></div><div class="feedback-body">Nice work — that's today's quest closed out.</div></div>`;
     } else if (result.status === 'empty') {
       feedbackHtml = `<div class="feedback warn"><div class="feedback-head">🕳️ EMPTY RESULT</div><div class="feedback-body">Your query ran but returned zero rows. Something should be there — check your filter.</div></div>`;
     } else if (result.status === 'partial_over') {
@@ -3617,6 +3622,7 @@ function doAction(action, el) {
       state.dailyLastError = null;
       state.dailyAttemptResult = null;
       state.dailyShowSolution = false;
+      state.dailyXpAwarded = null;
       state._dailyDraftQuery = '';
       state._newBadges = null;
       state.levelUpFrom = null;
