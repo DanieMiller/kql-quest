@@ -1322,20 +1322,20 @@ const MODULES = [
         explainNote: 'This is the simplest possible KQL query: name a table, then `take` a small sample to see its shape.',
       },
       {
-        objective: 'That table has a lot of columns. Narrow it down to just UserPrincipalName.',
+        objective: 'That table has a lot of columns. Keep your 5-row preview, but narrow the columns down to just UserPrincipalName.',
         concepts: ['project'], xp: 90,
         solutionQuery: `SigninLogs | take 5 | project UserPrincipalName`,
         hints: ['`project` picks which columns survive.', 'Syntax: `| project ColumnName`', 'Try adding: `| project UserPrincipalName`'],
         explainNote: '`project` reshapes each row down to only the columns you name.',
       },
       {
-        objective: 'Now widen it back out a little — show UserPrincipalName, IPAddress, and ResultType together.',
+        objective: 'Now widen it back out a little — still working with your 5-row preview, show UserPrincipalName, IPAddress, and ResultType together.',
         concepts: ['project'], xp: 90,
         solutionQuery: `SigninLogs | take 5 | project UserPrincipalName, IPAddress, ResultType`,
         hints: ['You can list several columns in one `project`, separated by commas.', 'This time, edit your existing `project` line rather than adding a new stage.', 'Try: `SigninLogs | take 5 | project UserPrincipalName, IPAddress, ResultType`'],
       },
       {
-        objective: 'Switch to a completely different table — preview DeviceProcessEvents and show just DeviceName and FileName.',
+        objective: 'Switch to a completely different table — take a fresh 5-row preview of DeviceProcessEvents, showing just DeviceName and FileName.',
         concepts: ['tables', 'project'], xp: 100,
         solutionQuery: `DeviceProcessEvents | take 5 | project DeviceName, FileName`,
         hints: ['Every table in this environment supports the same operators — only the column names change.', 'Start fresh with a new table name.', 'Try: `DeviceProcessEvents | take 5 | project DeviceName, FileName`'],
@@ -1363,13 +1363,13 @@ const MODULES = [
         explainNote: '`!=` catches every non-success code at once — much safer than trying to guess one specific failure reason.',
       },
       {
-        objective: 'Result codes above 50000 are all authentication-related error codes. Find sign-ins with a ResultType greater than 50000.',
+        objective: 'Now try a numeric comparison — replace your filter entirely: result codes above 50000 are all authentication-related error codes, so find sign-ins with a ResultType greater than 50000.',
         concepts: ['where'], xp: 100,
         solutionQuery: `SigninLogs | where ResultType > 50000`,
         hints: ['KQL supports the usual comparison operators: `>`, `<`, `>=`, `<=`.', 'Try: `SigninLogs | where ResultType > 50000`'],
       },
       {
-        objective: 'Switch columns entirely — find every sign-in to the "Microsoft Teams" application.',
+        objective: 'Switch columns entirely — throw away your ResultType filter and instead find every sign-in to the "Microsoft Teams" application.',
         concepts: ['where', 'string comparison'], xp: 90,
         solutionQuery: `SigninLogs | where AppDisplayName == "Microsoft Teams"`,
         hints: ['Same pattern, different column: `where ColumnName == "value"`.', 'Try: `SigninLogs | where AppDisplayName == "Microsoft Teams"`'],
@@ -1395,14 +1395,14 @@ const MODULES = [
         explainNote: '`and` narrows results (both must be true); `or` widens them (either can be true). Mixing them up is one of the most common real-world KQL mistakes.',
       },
       {
-        objective: 'Express "not successful" using the `not` keyword instead of `!=`, just so you\'ve seen both styles.',
+        objective: 'Express "not successful" a different way — replace your entire filter with an equivalent expression using the `not` keyword instead of `!=`, just so you\'ve seen both styles.',
         concepts: ['where', 'not'], xp: 90,
         solutionQuery: `SigninLogs | where not(ResultType == 0)`,
         hints: ['`not(condition)` negates whatever is inside the parentheses.', 'Try: `SigninLogs | where not(ResultType == 0)`'],
         explainNote: '`not(X == 0)` and `X != 0` mean exactly the same thing — KQL (like most languages) usually gives you more than one way to say something.',
       },
       {
-        objective: 'Combine everything: find failed sign-ins from Russia, OR failed sign-ins from Germany — using parentheses to group each pair of conditions clearly.',
+        objective: 'Now write a brand-new combined condition: find failed sign-ins from Russia, OR failed sign-ins from Germany — using parentheses to group each pair of conditions clearly.',
         concepts: ['where', 'and/or'], xp: 130,
         solutionQuery: `SigninLogs | where (ResultType != 0 and Location == "RU") or (ResultType != 0 and Location == "DE")`,
         hints: ['Wrap each "and" pair in its own parentheses, then join the two groups with `or`.', 'Try: `SigninLogs | where (ResultType != 0 and Location == "RU") or (ResultType != 0 and Location == "DE")`'],
@@ -1452,7 +1452,7 @@ const MODULES = [
     intro: `Now that you can filter, it's time to start measuring. Your lead wants to know which accounts are taking the most failed attempts — ranked, not just listed.`,
     steps: [
       {
-        objective: 'Start over with the same failed-login filter — this time you\'re going to measure it, not just list it.',
+        objective: 'For this first step, just repeat the same failed-login filter from before — nothing new yet. You\'ll build the measurement on top of it over the next few steps.',
         concepts: ['where'], xp: 80,
         solutionQuery: `SigninLogs | where ResultType != 0`,
         hints: ['Same filter as before: ResultType != 0.', 'Try: `SigninLogs | where ResultType != 0`'],
@@ -1663,7 +1663,7 @@ const MODULES = [
     steps: [
       { objective: 'Find every sign-in from the first known-bad IP, 185.220.101.47.', concepts: ['where'], xp: 120, solutionQuery: `SigninLogs | where IPAddress == "185.220.101.47"`, hints: ['`IPAddress == "185.220.101.47"`'] },
       {
-        objective: 'Now expand your filter to check for either of the two known-bad IPs at once: 185.220.101.47 and 45.155.204.10.',
+        objective: 'Replace your single-IP filter with one that checks for either known-bad IP at once: 185.220.101.47 and 45.155.204.10.',
         concepts: ['in'], xp: 170,
         solutionQuery: `SigninLogs | where IPAddress in ("185.220.101.47", "45.155.204.10")`,
         hints: ['This time, edit your existing `where` line rather than adding a new stage.', '`Column in (val1, val2, ...)` checks membership in a set of values.', 'Try: `SigninLogs | where IPAddress in ("185.220.101.47", "45.155.204.10")`'],
@@ -1678,7 +1678,7 @@ const MODULES = [
     intro: `FIN-WKS-014 has been flagged as compromised. Before the incident report, you need every piece of activity from that device — process launches AND network connections — in one timeline.`,
     steps: [
       { objective: 'Stack DeviceProcessEvents and DeviceNetworkEvents into a single combined result.', concepts: ['union'], xp: 180, solutionQuery: `union DeviceProcessEvents, DeviceNetworkEvents`, hints: ['`join` matches columns across tables; `union Table1, Table2` instead just stacks all their rows together, even with different columns.', 'Try: `union DeviceProcessEvents, DeviceNetworkEvents`'] },
-      { objective: 'Filter down to just the one compromised device.', concepts: ['where'], xp: 130, solutionQuery: `union DeviceProcessEvents, DeviceNetworkEvents | where DeviceName == "FIN-WKS-014"`, hints: ['Try adding: `| where DeviceName == "FIN-WKS-014"`'] },
+      { objective: 'Filter down to just the one compromised device: FIN-WKS-014.', concepts: ['where'], xp: 130, solutionQuery: `union DeviceProcessEvents, DeviceNetworkEvents | where DeviceName == "FIN-WKS-014"`, hints: ['Try adding: `| where DeviceName == "FIN-WKS-014"`'] },
       { objective: 'Sort chronologically so the story reads start to finish.', concepts: ['sort'], xp: 100, solutionQuery: `union DeviceProcessEvents, DeviceNetworkEvents | where DeviceName == "FIN-WKS-014" | sort by TimeGenerated asc`, hints: ['Try adding: `| sort by TimeGenerated asc`'] },
     ],
   },
@@ -1687,14 +1687,14 @@ const MODULES = [
     intro: `You know PowerShell ran maliciously on FIN-WKS-014. Now find out what launched it in the first place — the root cause of the entire incident.`,
     steps: [
       { objective: 'Find the powershell.exe process event.', concepts: ['where'], xp: 100, solutionQuery: `DeviceProcessEvents | where FileName == "powershell.exe"`, hints: ['`FileName == "powershell.exe"`'] },
-      { objective: 'Show the parent-process story: time, device, filename, and both Initiating* columns.', concepts: ['project', 'process ancestry'], xp: 160, solutionQuery: `DeviceProcessEvents | where FileName == "powershell.exe" | project TimeGenerated, DeviceName, FileName, InitiatingProcessFileName, InitiatingProcessCommandLine`, hints: ['InitiatingProcessFileName names the parent process.', 'Try adding: `| project TimeGenerated, DeviceName, FileName, InitiatingProcessFileName, InitiatingProcessCommandLine`'], explainNote: 'A common office application spawning a scripting engine is one of the most universally-alerted-on process-ancestry patterns in endpoint security.' },
+      { objective: 'Show the parent-process story: time, device, filename, and the two "Initiating process" columns — who spawned it, and with what command.', concepts: ['project', 'process ancestry'], xp: 160, solutionQuery: `DeviceProcessEvents | where FileName == "powershell.exe" | project TimeGenerated, DeviceName, FileName, InitiatingProcessFileName, InitiatingProcessCommandLine`, hints: ['InitiatingProcessFileName names the parent process.', 'Try adding: `| project TimeGenerated, DeviceName, FileName, InitiatingProcessFileName, InitiatingProcessCommandLine`'], explainNote: 'A common office application spawning a scripting engine is one of the most universally-alerted-on process-ancestry patterns in endpoint security.' },
     ],
   },
   {
     id: 'M16', level: 10, title: 'No Spoon-Feeding', codename: 'INVESTIGATE THE ANOMALY', dataset: 'DeviceNetworkEvents',
     intro: `Something on FIN-WKS-014 is reaching out to the internet at a suspicious cadence. Investigate on your own this time — minimal hand-holding.`,
     steps: [
-      { objective: 'Filter to the one compromised device.', concepts: ['where'], xp: 100, solutionQuery: `DeviceNetworkEvents | where DeviceName == "FIN-WKS-014"`, hints: ['You\'ve done this before.'] },
+      { objective: 'Filter to the one compromised device: FIN-WKS-014.', concepts: ['where'], xp: 100, solutionQuery: `DeviceNetworkEvents | where DeviceName == "FIN-WKS-014"`, hints: ['You\'ve done this before.'] },
       { objective: 'Group what remains by destination and count.', concepts: ['summarize'], xp: 170, solutionQuery: `DeviceNetworkEvents | where DeviceName == "FIN-WKS-014" | summarize Connections=count() by RemoteUrl`, hints: ['Think back to how you detected beaconing earlier.'] },
       { objective: 'Sort so the answer is obvious at a glance.', concepts: ['sort', 'synthesis'], xp: 120, solutionQuery: `DeviceNetworkEvents | where DeviceName == "FIN-WKS-014" | summarize Connections=count() by RemoteUrl | sort by Connections desc`, hints: ['Descending, so the busiest destination is first.'] },
     ],
