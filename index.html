@@ -1771,6 +1771,87 @@ REVIEW_TEMPLATES['has'] = REVIEW_TEMPLATES['contains'];
 REVIEW_TEMPLATES['dcount'] = REVIEW_TEMPLATES['count'];
 REVIEW_TEMPLATES['countif'] = REVIEW_TEMPLATES['count'];
 
+// ============== DAILY QUEST POOL ==============
+// A different quest each calendar day, deterministically selected so everyone sees the
+// same one on a given date and it stays stable across reloads within that day.
+const DAILY_QUEST_POOL = [
+  {
+    id: 'DQ01', title: 'Beacon Check', dataset: 'DeviceNetworkEvents', xp: 150,
+    story: `🎯 DAILY QUEST\n\nThreat intel flagged a suspicious domain overnight. Confirm whether it touched your environment.`,
+    objective: 'Find every device that connected to "cdn-analytics-update.net".',
+    solutionQuery: `DeviceNetworkEvents | where RemoteUrl == "cdn-analytics-update.net" | distinct DeviceName`,
+    hints: ['Filter DeviceNetworkEvents on the RemoteUrl column.', 'Use `distinct` so each device only shows once.', 'Try: `DeviceNetworkEvents | where RemoteUrl == "cdn-analytics-update.net" | distinct DeviceName`'],
+  },
+  {
+    id: 'DQ02', title: 'Top Sign-Ins', dataset: 'SigninLogs', xp: 150,
+    story: `🎯 DAILY QUEST\n\nLeadership wants a quick usage snapshot before the morning standup.`,
+    objective: 'Find the top 3 users by number of successful sign-ins.',
+    solutionQuery: `SigninLogs | where ResultType == 0 | summarize Count=count() by UserPrincipalName | sort by Count desc | top 3 by Count`,
+    hints: ['Filter to successes, then group and count by user.', '`top N by Column` is a shortcut for sort + take.', 'Try: `SigninLogs | where ResultType == 0 | summarize Count=count() by UserPrincipalName | sort by Count desc | top 3 by Count`'],
+  },
+  {
+    id: 'DQ03', title: "Word's Children", dataset: 'DeviceProcessEvents', xp: 150,
+    story: `🎯 DAILY QUEST\n\nA routine hygiene sweep: check what Word has been launching lately.`,
+    objective: 'List every process that was launched by winword.exe.',
+    solutionQuery: `DeviceProcessEvents | where InitiatingProcessFileName == "winword.exe"`,
+    hints: ['Check the InitiatingProcessFileName column.', 'Try: `DeviceProcessEvents | where InitiatingProcessFileName == "winword.exe"`'],
+  },
+  {
+    id: 'DQ04', title: 'Portal Traffic', dataset: 'SigninLogs', xp: 150,
+    story: `🎯 DAILY QUEST\n\nThe cloud team wants to know how much traffic the Azure Portal is really getting.`,
+    objective: 'Find all sign-ins to the "Azure Portal" application.',
+    solutionQuery: `SigninLogs | where AppDisplayName == "Azure Portal"`,
+    hints: ['Filter on the AppDisplayName column.', 'Try: `SigninLogs | where AppDisplayName == "Azure Portal"`'],
+  },
+  {
+    id: 'DQ05', title: 'Downloads Folder Sweep', dataset: 'DeviceFileEvents', xp: 150,
+    story: `🎯 DAILY QUEST\n\nDownloads folders are where most malicious payloads first land. Do a quick sweep.`,
+    objective: 'Find every file event where the folder path contains "Downloads".',
+    solutionQuery: `DeviceFileEvents | where FolderPath contains "Downloads"`,
+    hints: ['`contains` does substring matching on FolderPath.', 'Try: `DeviceFileEvents | where FolderPath contains "Downloads"`'],
+  },
+  {
+    id: 'DQ06', title: 'Chatty Devices', dataset: 'DeviceNetworkEvents', xp: 150,
+    story: `🎯 DAILY QUEST\n\nDevices that talk to a lot of different destinations are worth a second look.`,
+    objective: 'Find devices that contacted more than 2 distinct remote URLs.',
+    solutionQuery: `DeviceNetworkEvents | summarize UniqueUrls=dcount(RemoteUrl) by DeviceName | where UniqueUrls > 2`,
+    hints: ['`dcount` counts unique values within each group.', 'Filter after summarize with a second `where`.', 'Try: `DeviceNetworkEvents | summarize UniqueUrls=dcount(RemoteUrl) by DeviceName | where UniqueUrls > 2`'],
+  },
+  {
+    id: 'DQ07', title: 'File Creation Tally', dataset: 'DeviceFileEvents', xp: 150,
+    story: `🎯 DAILY QUEST\n\nA quick metric for the weekly report: how much file-creation activity happened?`,
+    objective: 'Count how many DeviceFileEvents rows have ActionType "FileCreated".',
+    solutionQuery: `DeviceFileEvents | where ActionType == "FileCreated" | count`,
+    hints: ['Filter first, then use `count` with no arguments as the last stage.', 'Try: `DeviceFileEvents | where ActionType == "FileCreated" | count`'],
+  },
+  {
+    id: 'DQ08', title: 'German Success', dataset: 'SigninLogs', xp: 150,
+    story: `🎯 DAILY QUEST\n\nCompliance is auditing sign-ins from the Berlin office today.`,
+    objective: 'Find every successful sign-in from Location "DE".',
+    solutionQuery: `SigninLogs | where ResultType == 0 and Location == "DE"`,
+    hints: ['Combine a result filter and a location filter with `and`.', 'Try: `SigninLogs | where ResultType == 0 and Location == "DE"`'],
+  },
+  {
+    id: 'DQ09', title: 'App Inventory', dataset: 'SigninLogs', xp: 150,
+    story: `🎯 DAILY QUEST\n\nIT wants a clean list of every application employees actually signed into.`,
+    objective: 'List every unique application name that appears in SigninLogs.',
+    solutionQuery: `SigninLogs | distinct AppDisplayName`,
+    hints: ['`distinct` removes duplicate values for the column you name.', 'Try: `SigninLogs | distinct AppDisplayName`'],
+  },
+  {
+    id: 'DQ10', title: 'PowerShell Sweep', dataset: 'DeviceProcessEvents', xp: 150,
+    story: `🎯 DAILY QUEST\n\nA fast daily hygiene check every SOC runs: any PowerShell activity worth a second look?`,
+    objective: 'Find every process event where the command line mentions "powershell" anywhere.',
+    solutionQuery: `DeviceProcessEvents | where ProcessCommandLine contains "powershell"`,
+    hints: ['`contains` is case-insensitive substring matching.', 'Try: `DeviceProcessEvents | where ProcessCommandLine contains "powershell"`'],
+  },
+];
+function getDailyQuestForDate(dateKey) {
+  let hash = 0;
+  for (let i = 0; i < dateKey.length; i++) hash = (hash * 31 + dateKey.charCodeAt(i)) >>> 0;
+  return DAILY_QUEST_POOL[hash % DAILY_QUEST_POOL.length];
+}
+
 // ============================================================
 // KQL QUEST — CASE FILES
 // Big, open-ended investigations. The analyst gets a KQL editor
@@ -2073,6 +2154,12 @@ let state = {
   showResetConfirm: false,
   dashboardTab: 'training',   // 'training' | 'daily' | 'casefiles'
   leaderboardMetric: 'bestStreak',
+  dailyHintLevel: 0,
+  dailyLastRows: null,
+  dailyLastError: null,
+  dailyAttemptResult: null,
+  dailyShowSolution: false,
+  _dailyDraftQuery: '',
   currentCaseId: null,
   caseLastRows: null,
   caseLastError: null,
@@ -2272,6 +2359,35 @@ function runCaseQuery(code) {
     state.caseLastError = e.message || String(e);
   }
 }
+// ---------------- Daily Quest: one rotating quest per calendar day ----------------
+function submitDailyQuest() {
+  const dailySeed = new Date().toISOString().slice(0, 10);
+  const q = getDailyQuestForDate(dailySeed);
+  const ta = document.getElementById('daily-editor');
+  const code = ta ? ta.value : '';
+  state.dailyLastError = null;
+  state.dailyLastRows = null;
+  let expected;
+  try { expected = runQuery(q.solutionQuery, DB, SESSION_NOW); } catch (e) { expected = []; }
+  let userRows;
+  try {
+    userRows = runQuery(code, DB, SESSION_NOW);
+  } catch (e) {
+    state.dailyLastError = e.message || String(e);
+    state.dailyAttemptResult = { status: 'error' };
+    return;
+  }
+  state.dailyLastRows = userRows;
+  const grade = gradeResult(userRows, expected);
+  state.dailyAttemptResult = grade;
+  if (grade.status === 'success' && !state.player.dailyDone[dailySeed]) {
+    state.player.dailyDone[dailySeed] = true;
+    state.player.xp += q.xp;
+    logActivity('daily', `Daily Quest: ${q.title}`, q.xp);
+    savePlayer();
+  }
+}
+
 function submitCaseAnswers() {
   const c = getCaseById(state.currentCaseId);
   if (!c) return;
@@ -2748,6 +2864,7 @@ function renderDailyTab() {
   const p = state.player;
   const dailySeed = new Date().toISOString().slice(0, 10);
   const dailyDone = !!p.dailyDone[dailySeed];
+  const todaysQuest = getDailyQuestForDate(dailySeed);
   const doneDates = Object.keys(p.dailyDone).sort().reverse();
   // count the current consecutive-day streak, walking backward from today
   let streak = 0;
@@ -2761,7 +2878,7 @@ function renderDailyTab() {
       <div class="daily-hero-icon">⚡</div>
       <div>
         <div class="section-title" style="margin:0;">DAILY QUEST</div>
-        <div class="casefiles-intro" style="margin:4px 0 0;">One fresh mini-investigation every day. Miss a day and the streak resets — come back daily to keep it alive.</div>
+        <div class="casefiles-intro" style="margin:4px 0 0;">One fresh mini-investigation every day, rotating through a pool of scenarios. Miss a day and the streak resets — come back daily to keep it alive.</div>
       </div>
     </div>
     <div class="stat-grid" style="margin-bottom:18px;">
@@ -2769,15 +2886,90 @@ function renderDailyTab() {
       <div class="stat-box"><div class="stat-num">${doneDates.length}</div><div class="stat-label">Total Daily Quests Done</div></div>
     </div>
     <div class="daily-card ${dailyDone ? 'done' : ''}">
-      <div class="daily-head">🎯 TODAY'S QUEST ${dailyDone ? '· COMPLETE' : ''}</div>
-      <div class="daily-body">Identify every device that connected to <code>cdn-analytics-update.net</code> today. (+150 bonus XP, one-time)</div>
-      ${dailyDone ? '' : `<button class="btn btn-ghost" data-action="do-daily">Accept Mission</button>`}
+      <div class="daily-head">🎯 TODAY'S QUEST: ${esc(todaysQuest.title)} ${dailyDone ? '· COMPLETE' : ''}</div>
+      <div class="daily-body">${esc(todaysQuest.objective)} (+${todaysQuest.xp} XP, one-time)</div>
+      <button class="btn ${dailyDone ? 'btn-ghost' : 'btn-primary'}" data-action="do-daily">${dailyDone ? '🔁 Review Today\'s Quest' : '▶ Accept Mission'}</button>
     </div>
     ${doneDates.length ? `<div class="activity-feed" style="margin-top:16px;">
       <div class="skill-col-head">Daily Quest History</div>
       ${doneDates.slice(0, 10).map(d => `<div class="activity-row"><span>${esc(d)}</span><span>Daily Quest completed</span><span class="activity-xp">+150 XP</span></div>`).join('')}
     </div>` : ''}
   `;
+}
+
+function renderDailyQuestScreen() {
+  const dailySeed = new Date().toISOString().slice(0, 10);
+  const q = getDailyQuestForDate(dailySeed);
+  const dailyDone = !!state.player.dailyDone[dailySeed];
+  const hints = q.hints || [];
+  const canReveal = state.dailyHintLevel >= hints.length;
+  const result = state.dailyAttemptResult;
+
+  let feedbackHtml = '';
+  if (state.dailyLastError) {
+    feedbackHtml = `<div class="feedback fail"><div class="feedback-head">⚠️ QUERY FAILED TO RUN</div><pre class="err-msg">${esc(state.dailyLastError)}</pre></div>`;
+  } else if (result) {
+    if (result.status === 'success') {
+      feedbackHtml = `<div class="feedback success"><div class="feedback-head">🎉 QUEST COMPLETE! <span class="float-xp">+${q.xp} XP</span></div><div class="feedback-body">Nice work — that's today's quest closed out.</div></div>`;
+    } else if (result.status === 'empty') {
+      feedbackHtml = `<div class="feedback warn"><div class="feedback-head">🕳️ EMPTY RESULT</div><div class="feedback-body">Your query ran but returned zero rows. Something should be there — check your filter.</div></div>`;
+    } else if (result.status === 'partial_over') {
+      feedbackHtml = `<div class="feedback warn"><div class="feedback-head">🟡 TOO BROAD</div><div class="feedback-body">You found every correct row, but some extra ones too (${result.matched}/${result.expected} matched, ${result.got} returned). You're likely missing a filter.</div></div>`;
+    } else if (result.status === 'partial_under') {
+      feedbackHtml = `<div class="feedback warn"><div class="feedback-head">🟡 TOO NARROW</div><div class="feedback-body">You found ${result.matched} of ${result.expected} expected rows. Your filter may be too strict.</div></div>`;
+    } else {
+      feedbackHtml = `<div class="feedback fail"><div class="feedback-head">❌ NOT QUITE</div><div class="feedback-body">Your query ran fine but doesn't answer the question yet (${result.matched}/${result.expected} expected rows found).</div></div>`;
+    }
+  }
+
+  let hintsHtml = '';
+  if (hints.length) {
+    hintsHtml = `<div class="hints-panel">
+      <div class="hints-head">💡 HINTS (${state.dailyHintLevel}/${hints.length} used)</div>
+      ${hints.slice(0, state.dailyHintLevel).map((h, i) => `<div class="hint-line"><b>Hint ${i + 1}:</b> ${esc(h)}</div>`).join('')}
+      <div class="hints-actions">
+        ${state.dailyHintLevel < hints.length ? `<button class="btn btn-ghost" data-action="get-daily-hint">Get Hint (${state.dailyHintLevel + 1}/${hints.length})</button>` : ''}
+        ${canReveal && !state.dailyShowSolution ? `<button class="btn btn-ghost danger" data-action="reveal-daily-solution">🔓 Reveal Solution</button>` : ''}
+      </div>
+      ${state.dailyShowSolution ? `<div class="solution-box"><b>SOLUTION:</b><pre>${esc(q.solutionQuery)}</pre></div>` : ''}
+    </div>`;
+  }
+
+  const datasets = (q.dataset || '').split('+').map(s => s.trim());
+  const colsHtml = datasets.map(d => `<div class="ds-chip">${esc(d)}<div class="ds-cols">${(TABLE_COLUMNS[d] || []).join(', ')}</div></div>`).join('');
+  const resultsHtml = state.dailyLastRows ? renderResultsTable(state.dailyLastRows) : '';
+  const newBadgeModal = state._newBadges && state._newBadges.length ? renderBadgeModal(state._newBadges) : '';
+  const levelUpModal = state.levelUpFrom ? renderLevelUpModal() : '';
+
+  return `
+  <div class="mission-view">
+    <div class="mission-briefing">
+      <div class="briefing-top">
+        <button class="btn btn-ghost small" data-action="goto-dashboard">← Mission Control</button>
+        <span class="mission-tag">⚡ DAILY QUEST</span>
+      </div>
+      <h2 class="briefing-title">${esc(q.title)}</h2>
+      <div class="briefing-meta"><span>+${q.xp} XP</span>${dailyDone ? '<span class="tag-done">✅ SOLVED TODAY</span>' : ''}</div>
+      <div class="briefing-story">${nl2br(q.story)}</div>
+      <div class="briefing-objective"><b>🎯 OBJECTIVE:</b> ${esc(q.objective)}</div>
+      <div class="ds-chips">${colsHtml}</div>
+      ${hintsHtml}
+    </div>
+    <div class="mission-workbench">
+      <div class="editor-toolbar">
+        <button class="btn btn-primary" data-action="run-daily-quest">▶ RUN QUERY</button>
+        <button class="btn btn-ghost" data-action="format-daily-query">🧹 Format</button>
+        <button class="btn btn-ghost" data-action="reset-daily-query">🔄 Reset</button>
+      </div>
+      <div class="editor-wrap">
+        <div class="editor-gutter" id="daily-editor-gutter">1</div>
+        <textarea id="daily-editor" class="editor-input" spellcheck="false" autocapitalize="off" autocomplete="off"
+          placeholder="Write your KQL query here...">${esc(state._dailyDraftQuery || '')}</textarea>
+      </div>
+      <div class="results-area">${feedbackHtml}${resultsHtml}</div>
+    </div>
+  </div>
+  ${newBadgeModal}${levelUpModal}`;
 }
 
 function renderCaseFilesTab() {
@@ -3377,6 +3569,12 @@ function setupEditor() {
 function setupCaseEditor() {
   setupKqlEditor('case-editor', 'case-editor-gutter', () => Object.keys(TABLE_COLUMNS), (v) => { state._caseDraftQuery = v; }, 'run-case-query');
 }
+function setupDailyEditor() {
+  setupKqlEditor('daily-editor', 'daily-editor-gutter', () => {
+    const q = getDailyQuestForDate(new Date().toISOString().slice(0, 10));
+    return (q.dataset || '').split('+').map(s => s.trim());
+  }, (v) => { state._dailyDraftQuery = v; }, 'run-daily-quest');
+}
 
 function insertAtCursor(text, taId) {
   const ta = document.getElementById(taId || 'kql-editor');
@@ -3492,11 +3690,30 @@ function doAction(action, el) {
     case 'start-mission': goToMission(el.dataset.id); render(); break;
     case 'start-module': startModule(el.dataset.id); render(); break;
     case 'do-daily': {
-      const dailySeed = new Date().toISOString().slice(0, 10);
-      state.player.dailyDone[dailySeed] = true;
-      state.player.xp += 150;
-      logActivity('daily', 'Daily Mission: C2 Sweep', 150);
-      savePlayer(); render();
+      state.dailyHintLevel = 0;
+      state.dailyLastRows = null;
+      state.dailyLastError = null;
+      state.dailyAttemptResult = null;
+      state.dailyShowSolution = false;
+      state._dailyDraftQuery = '';
+      state._newBadges = null;
+      state.levelUpFrom = null;
+      state.screen = 'daily-quest';
+      render();
+      break;
+    }
+    case 'run-daily-quest': submitDailyQuest(); render(); break;
+    case 'get-daily-hint': {
+      const q = getDailyQuestForDate(new Date().toISOString().slice(0, 10));
+      if (state.dailyHintLevel < (q.hints || []).length) state.dailyHintLevel++;
+      render(); setTimeout(setupDailyEditor, 0);
+      break;
+    }
+    case 'reveal-daily-solution': state.dailyShowSolution = true; render(); setTimeout(setupDailyEditor, 0); break;
+    case 'reset-daily-query': { state._dailyDraftQuery = ''; render(); break; }
+    case 'format-daily-query': {
+      const ta = document.getElementById('daily-editor');
+      if (ta) { ta.value = formatQuery(ta.value); ta.dispatchEvent(new Event('input')); }
       break;
     }
     case 'run-query': submitMission(); render(); break;
@@ -3547,10 +3764,12 @@ function render() {
   else if (state.screen === 'badges') inner = renderBadges();
   else if (state.screen === 'skilltree') inner = renderSkillTree();
   else if (state.screen === 'casefile') inner = renderCaseFile();
+  else if (state.screen === 'daily-quest') inner = renderDailyQuestScreen();
   $app().innerHTML = hud + `<div class="screen-body">${inner}</div>` + resetModal;
   wireEvents();
   if (state.screen === 'mission') setupEditor();
   if (state.screen === 'casefile') setupCaseEditor();
+  if (state.screen === 'daily-quest') setupDailyEditor();
 }
 
 // ============================================================
@@ -3569,7 +3788,7 @@ async function main() {
 main();
 
 // Expose a small debug surface (useful for QA and for curious analysts poking the console).
-window.KQLQUEST_DEBUG = { state, ALL_STEPS, ALL_MODULES, CASE_FILES, REVIEW_TEMPLATES, DB, submitMission, goToMission, startModule, resetProgress, submitCaseAnswers, gradeCaseQuestion, runCaseQuery, render, runQuery, gradeResult, useHint, revealSolution };
+window.KQLQUEST_DEBUG = { state, ALL_STEPS, ALL_MODULES, CASE_FILES, REVIEW_TEMPLATES, DAILY_QUEST_POOL, getDailyQuestForDate, DB, submitMission, goToMission, startModule, resetProgress, submitCaseAnswers, gradeCaseQuestion, runCaseQuery, submitDailyQuest, render, runQuery, gradeResult, useHint, revealSolution };
 
 </script>
 </body>
