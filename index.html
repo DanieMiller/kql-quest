@@ -2126,6 +2126,7 @@ function freshPlayer() {
     completedCount: 0,
     reviewPool: [],        // queued synthetic review missions {id, concept, ...}
     dailyDone: {},         // dateStr -> true
+    levelReadthroughDone: {}, // level number -> true, once the operator readthrough is acknowledged
     caseFiles: {},         // caseId -> { attempts, scoredKeys: [], xpEarned, solved }
     createdAt: Date.now(),
     lastActive: Date.now(),
@@ -2155,6 +2156,9 @@ let state = {
   dailyShowSolution: false,
   dailyXpAwarded: null,
   _dailyDraftQuery: '',
+  readthroughLevel: null,
+  pendingMissionId: null,
+  showOperatorPanel: false,
   currentCaseId: null,
   caseLastRows: null,
   caseLastError: null,
@@ -3084,6 +3088,11 @@ function renderMission() {
       <div class="briefing-objective"><b>🎯 ${c.totalSteps > 1 ? `STEP ${c.stepIndex + 1}:` : 'OBJECTIVE:'}</b> ${esc(c.objective)}</div>
       ${c.thinkThrough && c.thinkThrough.length ? `<div class="think-through"><b>Think it through:</b><ul>${c.thinkThrough.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}
       <div class="ds-chips">${colsHtml}</div>
+      <button class="btn btn-ghost small op-panel-toggle" data-action="toggle-operator-panel">📖 ${state.showOperatorPanel ? 'Hide' : 'Show'} Operator Info</button>
+      ${state.showOperatorPanel ? `<div class="inline-op-panel">${(() => {
+        const sections = operatorGuideSectionsForLevel(c.level);
+        return sections.length ? renderOperatorSections(sections) : '<p class="casefiles-intro">No new operators for this level — you\'re applying what you already know.</p>';
+      })()}</div>` : ''}
       ${hintsHtml}
       ${explainHtml}
     </div>
@@ -3232,6 +3241,41 @@ function renderBadges() {
   </div>`;
 }
 
+// Maps the concept tags used throughout the curriculum (challenges.js) to the specific
+// OPERATOR_GUIDE row(s) they correspond to. Tags with no distinct operator of their own
+// (e.g. "synthesis", "ActionType") are simply omitted — they don't introduce new syntax.
+const CONCEPT_TO_OPS = {
+  tables: ['TableName'], take: ['take N'], project: ['project Col1, Col2'],
+  where: ['where condition'], 'string comparison': ['== / != / > / < / >= / <='],
+  'and/or': ['and / or / not'], not: ['and / or / not'],
+  ago: ['ago(timespan)'], datetime: ['ago(timespan)', 'timespan literals'],
+  sort: ['sort by Col desc/asc'], 'order by': ['order by'],
+  summarize: ['summarize agg() by Col'], 'count()': ['count()'],
+  'where after summarize': ['where condition'],
+  search: ['search "text"'], contains: ['contains "text"'],
+  'string operators': ['has "word"', 'has_any(a, b, c)', 'startswith / endswith'],
+  dcount: ['dcount(Col)'], extend: ['extend NewCol = expr'], iff: ['iff(cond, a, b)'],
+  bin: ['bin(value, size)'], LOLBins: ['has "word"', 'contains "text"'],
+  split: ['split(text, sep)'], tostring: ['tostring / toint / toreal / todatetime'],
+  join: ['join kind=inner (Table) on Key'], correlation: ['join kind=inner (Table) on Key'],
+  'join (self)': ['self-join'], 'datetime math': ['datetime subtraction'], abs: ['datetime subtraction'],
+  in: ['in (a, b, c)'], union: ['union Table1, Table2'],
+  'process ancestry': ['extend NewCol = expr', 'where condition'],
+};
+function operatorNamesForLevel(level) {
+  const names = new Set();
+  ALL_STEPS.filter(s => s.level === level).forEach(s => {
+    (s.concepts || []).forEach(c => (CONCEPT_TO_OPS[c] || []).forEach(n => names.add(n)));
+  });
+  return names;
+}
+function operatorGuideSectionsForLevel(level) {
+  const names = operatorNamesForLevel(level);
+  return OPERATOR_GUIDE
+    .map(section => ({ ...section, ops: section.ops.filter(o => names.has(o.name)) }))
+    .filter(section => section.ops.length > 0);
+}
+
 const OPERATOR_GUIDE = [
   {
     category: 'Getting Data', color: '#39ff88',
@@ -3319,27 +3363,52 @@ const OPERATOR_GUIDE = [
   },
 ];
 
+function renderOperatorSections(sections) {
+  return sections.map(section => `
+    <div class="op-guide-section" style="--seccolor:${section.color}">
+      <div class="op-guide-section-head">${esc(section.category)}</div>
+      ${section.ops.map(o => `
+        <div class="op-guide-row">
+          <div class="op-guide-name">${esc(o.name)}</div>
+          <div class="op-guide-body">
+            <code class="op-guide-ex">${esc(o.ex)}</code>
+            <div class="op-guide-why">${esc(o.why)}</div>
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
 function renderOperatorGuide() {
   const backAction = state.player.name ? 'goto-dashboard' : 'goto-onboarding';
   return `<div class="operator-guide-screen">
     <button class="btn btn-ghost small" data-action="${backAction}">← ${state.player.name ? 'Mission Control' : 'Back to Sign In'}</button>
     <h2 class="section-title">📖 KQL OPERATOR GUIDE</h2>
     <p class="casefiles-intro">A quick readthrough before you dive in — every operator you'll actually use in this game, and <b>why</b> a real analyst reaches for it. Nothing here is guided practice; the missions are where you'll use these for real.</p>
-    ${OPERATOR_GUIDE.map(section => `
-      <div class="op-guide-section" style="--seccolor:${section.color}">
-        <div class="op-guide-section-head">${esc(section.category)}</div>
-        ${section.ops.map(o => `
-          <div class="op-guide-row">
-            <div class="op-guide-name">${esc(o.name)}</div>
-            <div class="op-guide-body">
-              <code class="op-guide-ex">${esc(o.ex)}</code>
-              <div class="op-guide-why">${esc(o.why)}</div>
-            </div>
-          </div>`).join('')}
-      </div>`).join('')}
+    ${renderOperatorSections(OPERATOR_GUIDE)}
   </div>`;
 }
 
+function renderLevelReadthrough() {
+  const level = state.readthroughLevel;
+  const levelNames = {
+    1: 'KQL RECRUIT', 2: 'DATA TRACKER', 3: 'SEARCH SPECIALIST', 4: 'DATA SHAPER',
+    5: 'TIME HUNTER', 6: 'ENDPOINT INVESTIGATOR', 7: 'CORRELATION ANALYST', 8: 'ELITE HUNTER',
+    9: 'THREAT INTEL ANALYST', 10: 'SOC OPERATOR', 11: 'OPERATION NIGHTFALL — FINAL EXAM',
+  };
+  const sections = operatorGuideSectionsForLevel(level);
+  const body = sections.length
+    ? renderOperatorSections(sections)
+    : `<p class="casefiles-intro">This level doesn't introduce brand-new operators — it's about applying everything you've already learned to new, less-guided scenarios. Go ahead when you're ready.</p>`;
+  return `<div class="operator-guide-screen level-readthrough-screen">
+    <div class="level-readthrough-header">
+      <div class="mission-tag">🔒 REQUIRED READTHROUGH</div>
+      <h2 class="section-title">LEVEL ${level} — ${esc(levelNames[level] || '')}</h2>
+      <p class="casefiles-intro">Before you can start this level's missions, read through the operators you'll be using. You can always reopen this from the 📖 icon later, or toggle a compact version inline while you work.</p>
+    </div>
+    ${body}
+    <button class="btn btn-primary btn-big" data-action="ack-readthrough">✅ I've Read This — Start Level ${level}</button>
+  </div>`;
+}
 function renderSkillTree() {
   const groups = {
     Fundamentals: ['tables', 'take', 'project', 'where', 'string comparison', 'and/or'],
@@ -3707,6 +3776,15 @@ function wireEvents() {
 }
 
 function goToMission(id) {
+  const c0 = getChallengeById(id);
+  // Gate: block entry into a level's missions until its operator readthrough is acknowledged.
+  // Review missions (level 0, synthetic) are exempt — they revisit material already unlocked.
+  if (c0 && !c0.review && c0.level && !state.player.levelReadthroughDone[c0.level]) {
+    state.pendingMissionId = id;
+    state.readthroughLevel = c0.level;
+    state.screen = 'level-readthrough';
+    return;
+  }
   state.currentId = id;
   state.hintLevel = 0;
   state.attemptResult = null;
@@ -3753,6 +3831,17 @@ function doAction(action, el) {
     case 'goto-casefiles': state.screen = 'dashboard'; state.dashboardTab = 'casefiles'; render(); break;
     case 'goto-operators': state.screen = 'operators'; render(); break;
     case 'goto-onboarding': state.screen = 'onboarding'; render(); break;
+    case 'ack-readthrough': {
+      state.player.levelReadthroughDone[state.readthroughLevel] = true;
+      savePlayer();
+      const pending = state.pendingMissionId;
+      state.pendingMissionId = null;
+      state.readthroughLevel = null;
+      if (pending) goToMission(pending); else state.screen = 'dashboard';
+      render();
+      break;
+    }
+    case 'toggle-operator-panel': state.showOperatorPanel = !state.showOperatorPanel; render(); setTimeout(setupEditor, 0); break;
     case 'open-casefile': {
       state.currentCaseId = el.dataset.id;
       state.caseLastRows = null; state.caseLastError = null; state.caseGrade = null; state.caseShowAnswers = false;
@@ -3860,6 +3949,7 @@ function render() {
   else if (state.screen === 'casefile') inner = renderCaseFile();
   else if (state.screen === 'daily-quest') inner = renderDailyQuestScreen();
   else if (state.screen === 'operators') inner = renderOperatorGuide();
+  else if (state.screen === 'level-readthrough') inner = renderLevelReadthrough();
   $app().innerHTML = hud + `<div class="screen-body">${inner}</div>` + resetModal;
   wireEvents();
   if (state.screen === 'mission') setupEditor();
