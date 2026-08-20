@@ -214,6 +214,15 @@ a, .link{color:var(--cyan);}
 .level-progress{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted);}
 .level-block.locked-level{opacity:.55;}
 .locked-level-msg{font-size:12px;color:var(--muted2);padding:10px 4px;font-family:var(--mono);}
+
+/* ---------------- operator guide ---------------- */
+.op-guide-section{border-left:3px solid var(--seccolor,var(--cyan));padding-left:16px;margin:18px 0;}
+.op-guide-section-head{font-family:var(--disp);font-weight:700;font-size:14px;letter-spacing:.04em;color:var(--seccolor,var(--cyan));margin-bottom:10px;}
+.op-guide-row{display:grid;grid-template-columns:200px 1fr;gap:14px;padding:10px 0;border-top:1px dashed var(--border);}
+@media (max-width:700px){.op-guide-row{grid-template-columns:1fr;}}
+.op-guide-name{font-family:var(--mono);font-weight:700;color:var(--text);font-size:13px;padding-top:2px;}
+.op-guide-ex{display:block;background:var(--bg2);border:1px solid var(--border-lit);border-radius:6px;padding:6px 10px;color:var(--cyan);font-size:12px;margin-bottom:6px;width:fit-content;}
+.op-guide-why{font-size:13px;color:var(--muted);line-height:1.6;}
 .mission-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;}
 .mission-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;transition:all .15s;position:relative;}
 .mission-card:hover{border-color:var(--cyan);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.35);}
@@ -500,6 +509,20 @@ function makeHelpers(nowInstant) {
       const words = String(a).toLowerCase().split(/[^a-z0-9_.\-]+/i);
       return words.includes(String(b).toLowerCase());
     },
+    hasAny: (a, arr) => {
+      if (a == null) return false;
+      const words = String(a).toLowerCase().split(/[^a-z0-9_.\-]+/i);
+      return arr.some(v => words.includes(String(v).toLowerCase()));
+    },
+    hasAll: (a, arr) => {
+      if (a == null) return false;
+      const words = String(a).toLowerCase().split(/[^a-z0-9_.\-]+/i);
+      return arr.every(v => words.includes(String(v).toLowerCase()));
+    },
+    matchesRegex: (a, pattern) => {
+      if (a == null) return false;
+      try { return new RegExp(pattern, 'i').test(String(a)); } catch (e) { return false; }
+    },
     startswith: (a, b) => a != null && String(a).toLowerCase().startsWith(String(b).toLowerCase()),
     endswith: (a, b) => a != null && String(a).toLowerCase().endsWith(String(b).toLowerCase()),
     isempty: (a) => a === null || a === undefined || a === '',
@@ -565,6 +588,13 @@ function translateExpr(expr) {
   e = infixToFn(e, '!contains', '!contains');
   e = infixToFn(e, 'contains_cs', 'contains_cs');
   e = infixToFn(e, 'contains', 'contains');
+  // has_any / has_all take a LIST, not a single value — and must be handled BEFORE plain
+  // has/!has, otherwise the plain "has" pattern greedily matches the "has" inside "has_any"
+  // and mistakes "_any" for the search term (this was a real bug: "_any is not defined").
+  e = e.replace(/([\w.$]+(?:\([^)]*\))?)\s*!has_any\s*\(([^)]*)\)/gi, '!hasAny($1,[$2])');
+  e = e.replace(/([\w.$]+(?:\([^)]*\))?)\s*has_any\s*\(([^)]*)\)/gi, 'hasAny($1,[$2])');
+  e = e.replace(/([\w.$]+(?:\([^)]*\))?)\s*!has_all\s*\(([^)]*)\)/gi, '!hasAll($1,[$2])');
+  e = e.replace(/([\w.$]+(?:\([^)]*\))?)\s*has_all\s*\(([^)]*)\)/gi, 'hasAll($1,[$2])');
   e = infixToFn(e, '!has_cs', '!has');
   e = infixToFn(e, '!has', '!has');
   e = infixToFn(e, 'has_cs', 'has');
@@ -573,6 +603,9 @@ function translateExpr(expr) {
   e = infixToFn(e, 'startswith', 'startswith');
   e = infixToFn(e, '!endswith', '!endswith');
   e = infixToFn(e, 'endswith', 'endswith');
+  // "matches regex" — the real KQL way to do wildcard/pattern matching (there is no
+  // generic `*` glob wildcard in `where`/`contains`/`has` — regex is the correct tool).
+  e = e.replace(new RegExp(`([\\w.$]+(?:\\([^)]*\\))?)\\s*matches\\s+regex\\s*(${QSTR})`, 'gi'), 'matchesRegex($1,$2)');
   // 3) field in (a,b,c) -> inArr(field,[a,b,c])
   e = e.replace(/([A-Za-z_][\w.]*)\s*!in\s*\(([^)]*)\)/gi, '!inArr($1,[$2])');
   e = e.replace(/([A-Za-z_][\w.]*)\s+in\s*\(([^)]*)\)/gi, 'inArr($1,[$2])');
@@ -704,8 +737,16 @@ function runQuery(query, db, nowInstant) {
 function applyStage(stage, rows, db, letVars, helpers, nowInstant) {
   let m;
   if ((m = /^search\s+(?:"([^"]*)"|'([^']*)')$/i.exec(stage))) {
-    const term = (m[1] || m[2] || '').toLowerCase();
-    return rows.filter(r => Object.values(r).some(v => v != null && String(v).toLowerCase().includes(term)));
+    const term = (m[1] || m[2] || '');
+    // Real Kusto's search operator supports * as a wildcard (unlike where/contains/has,
+    // which have no generic glob wildcard) — translate it into a case-insensitive regex.
+    if (term.includes('*')) {
+      const pattern = term.split('*').map(chunk => chunk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*');
+      const re = new RegExp(pattern, 'i');
+      return rows.filter(r => Object.values(r).some(v => v != null && re.test(String(v))));
+    }
+    const lowerTerm = term.toLowerCase();
+    return rows.filter(r => Object.values(r).some(v => v != null && String(v).toLowerCase().includes(lowerTerm)));
   }
   if ((m = /^where\s+(.*)$/is.exec(stage))) {
     const expr = m[1];
@@ -2522,6 +2563,7 @@ function renderHud() {
     <div class="hud-right">
       <div class="hud-streak" title="Current streak">🔥 ${p.streak}</div>
       <button class="icon-btn" data-action="goto-casefiles" title="Case Files">🗂️</button>
+      <button class="icon-btn" data-action="goto-operators" title="Operator Guide">📖</button>
       <button class="icon-btn" data-action="goto-skilltree" title="Skill Tree">🌳</button>
       <button class="icon-btn" data-action="goto-badges" title="Badges">🏅</button>
       <button class="icon-btn" data-action="goto-profile" title="Profile">🧑‍💻</button>
@@ -2585,6 +2627,7 @@ function renderOnboarding() {
       <label class="onboard-label">ENTER YOUR ANALYST CALLSIGN</label>
       <input id="callsign-input" class="onboard-input" maxlength="20" placeholder="e.g. NIGHTOWL" value="${esc(state.player.name)}" />
       <button class="btn btn-primary btn-big" data-action="begin-training">▶ BEGIN TRAINING</button>
+      <button class="btn btn-ghost" style="width:100%;margin-top:8px;" data-action="goto-operators">📖 Read the Operator Guide First</button>
     </div>
   </div>`;
 }
@@ -3066,7 +3109,7 @@ function renderMission() {
 }
 
 function quickInsertChips(datasets) {
-  const ops = ['where', 'project', 'extend', 'summarize ... by', 'count()', 'countif()', 'dcount()', 'distinct', 'sort by ... desc', 'take 10', 'ago(24h)', 'contains', 'has', 'join kind=inner () on'];
+  const ops = ['where', 'project', 'extend', 'summarize ... by', 'count()', 'countif()', 'dcount()', 'distinct', 'sort by ... desc', 'take 10', 'ago(24h)', 'contains', 'has', 'has_any()', 'matches regex', 'join kind=inner () on'];
   let cols = [];
   datasets.forEach(d => { cols = cols.concat(TABLE_COLUMNS[d] || []); });
   const items = [...ops.map(o => ({ t: o, k: 'op' })), ...cols.map(c => ({ t: c, k: 'col' }))];
@@ -3186,6 +3229,114 @@ function renderBadges() {
         </div>`;
       }).join('')}
     </div>
+  </div>`;
+}
+
+const OPERATOR_GUIDE = [
+  {
+    category: 'Getting Data', color: '#39ff88',
+    ops: [
+      { name: 'TableName', ex: 'SigninLogs', why: 'Every query starts by naming a table. This tells KQL which log source to pull from.' },
+      { name: 'take N', ex: 'SigninLogs | take 10', why: 'Grabs the first N rows with zero filtering — the fastest way to preview what a table looks like before you write real logic.' },
+      { name: 'project Col1, Col2', ex: '| project UserPrincipalName, IPAddress', why: 'Keeps only the columns you list, discarding everything else. Use it to trim noisy tables down to what actually matters for your report or next step.' },
+      { name: 'project-away Col', ex: '| project-away SHA256', why: 'The opposite of project — removes specific columns and keeps everything else. Handy when you want "all but a few."' },
+      { name: 'project-rename New=Old', ex: '| project-rename User=UserPrincipalName', why: "Renames a column without changing its values. Useful for clarity, or to line up column names before a join." },
+    ],
+  },
+  {
+    category: 'Filtering', color: '#3ec6ff',
+    ops: [
+      { name: 'where condition', ex: '| where ResultType != 0', why: "The single most important operator in KQL. Every investigation is really just a series of increasingly specific `where` clauses narrowing down to the rows that matter." },
+      { name: '== / != / > / < / >= / <=', ex: 'ResultType > 50000', why: 'Standard comparisons. `==` and `!=` for exact matches, the rest for numeric or date ranges.' },
+      { name: 'and / or / not', ex: 'A != 0 and B == "RU"', why: '`and` requires both sides true (narrows results); `or` requires either side true (widens results); `not(...)` negates a condition. Mixing these up is one of the most common real-world KQL mistakes.' },
+      { name: 'in (a, b, c)', ex: 'IPAddress in ("1.2.3.4", "5.6.7.8")', why: 'Checks membership in a list of values in one clean line, instead of chaining several `or` clauses together.' },
+      { name: 'search "text"', ex: '| search "powershell"', why: "Scans every column for a keyword at once. Great for early triage when you don't yet know which field holds the evidence. Supports `*` as a wildcard (e.g. `search \"power*\"`) — this is the one place KQL genuinely supports wildcarding." },
+    ],
+  },
+  {
+    category: 'String Matching', color: '#ffd23f',
+    ops: [
+      { name: 'contains "text"', ex: 'FolderPath contains "Downloads"', why: 'Case-insensitive substring match — finds the text anywhere inside the field, even mid-word.' },
+      { name: 'has "word"', ex: 'FileName has "powershell.exe"', why: "Whole-token match — the field must contain that exact token (split on spaces/punctuation, not letters). Faster than `contains` in real Sentinel because it can use the search index, but it will NOT match a multi-word phrase like \"Microsoft Teams\" as one token — use `contains` or `==` for phrases instead." },
+      { name: 'has_any(a, b, c)', ex: 'CommandLine has_any("-enc", "-e ")', why: 'True if ANY of the listed terms is a whole-token match. A clean way to check a field against a whole watchlist of indicators at once.' },
+      { name: 'has_all(a, b, c)', ex: 'CommandLine has_all("powershell.exe", "-enc")', why: 'True only if EVERY listed term is present as a whole token. Useful for detections that need multiple signals together, not just one.' },
+      { name: 'startswith / endswith', ex: 'FileName endswith ".ps1"', why: 'Anchored substring matching — checks the very beginning or very end of a string, e.g. file extensions or domain suffixes.' },
+      { name: 'matches regex "pattern"', ex: 'FileName matches regex "^power.*\\.exe$"', why: "KQL has no generic `*` glob wildcard in `where` — this is the real tool for wildcard-style or complex pattern matching, using standard regular expressions." },
+    ],
+  },
+  {
+    category: 'Shaping & Computing', color: '#b76bff',
+    ops: [
+      { name: 'extend NewCol = expr', ex: '| extend IsRisky = ResultType != 0', why: 'Adds a new computed column while keeping every existing column — the opposite of project. Use it to build up a signal before filtering or displaying it.' },
+      { name: 'iff(cond, a, b)', ex: 'iff(ResultType == 0, "Success", "Fail")', why: "KQL's inline if/else — returns one value when the condition is true, another when it's false." },
+      { name: 'split(text, sep)', ex: 'split(UserPrincipalName, "@")[0]', why: 'Breaks a string into an array on a separator. Combine with array indexing (`[0]`) and `tostring()` to pull out just the piece you need — e.g. turning a UPN into a bare username.' },
+      { name: 'tostring / toint / toreal / todatetime', ex: 'tostring(split(x,"@")[0])', why: 'Type-conversion functions. KQL is picky about types under the hood, so you\'ll reach for these constantly after splitting or parsing.' },
+      { name: 'parse_json(text)', ex: 'parse_json(RawEventData)', why: 'Parses a JSON-formatted string column into a real object so you can drill into its fields.' },
+      { name: 'bin(value, size)', ex: 'bin(TimeGenerated, 30m)', why: 'Rounds a value down into fixed-size buckets — the key to time-windowed analysis, like "how many failed logins per 30-minute window."' },
+    ],
+  },
+  {
+    category: 'Aggregation', color: '#ff5b5b',
+    ops: [
+      { name: 'summarize agg() by Col', ex: '| summarize count() by UserPrincipalName', why: 'Groups rows by a column and computes one aggregate value per group — the backbone of almost every "which X had the most Y" question.' },
+      { name: 'count()', ex: 'summarize count() by UserPrincipalName', why: 'Counts rows per group. Its default output column is named `count_` in real Kusto — worth remembering if you plan to `sort by` it afterward.' },
+      { name: 'countif(condition)', ex: 'countif(ResultType != 0)', why: 'Counts only the rows in the group matching a condition — like `count()` with a built-in filter, letting you compute several different counts in one summarize.' },
+      { name: 'dcount(Col)', ex: 'dcount(IPAddress)', why: "Counts DISTINCT values, not rows. A single user failing from 1 IP is a typo; the same user failing from 12 distinct IPs is a real signal — that's exactly what dcount surfaces." },
+      { name: 'avg / min / max / sum', ex: 'avg(ResultType)', why: 'Standard numeric aggregates, used the same way inside a `summarize` as `count()`.' },
+      { name: 'distinct Col', ex: '| distinct UserPrincipalName', why: 'Removes duplicate rows for the column(s) listed — the simplest way to answer "how many unique X are there."' },
+    ],
+  },
+  {
+    category: 'Ordering & Limiting', color: '#ff3fa4',
+    ops: [
+      { name: 'sort by Col desc/asc', ex: '| sort by FailedAttempts desc', why: 'Reorders rows by a column. `desc` puts the largest/newest first — almost always what you want right after a `summarize`.' },
+      { name: 'order by', ex: '| order by TimeGenerated asc', why: 'An exact synonym for `sort by` — some analysts prefer the SQL-like phrasing, they behave identically.' },
+      { name: 'top N by Col', ex: '| top 5 by Count desc', why: 'A shortcut for `sort by Col desc | take N` in one stage — clean and common when you just want "the top 5."' },
+    ],
+  },
+  {
+    category: 'Combining Tables', color: '#5b8cff',
+    ops: [
+      { name: 'join kind=inner (Table) on Key', ex: '| join kind=inner (DeviceProcessEvents) on AccountName', why: "Matches rows between two tables where a key column is equal on both sides — how you connect identity events to endpoint events, or anything across two different log sources." },
+      { name: 'self-join', ex: '| join kind=inner (SigninLogs) on UserPrincipalName', why: 'You can join a table to a filtered copy of itself to compare an entity\'s events against its OTHER events — the trick behind detections like "impossible travel."' },
+      { name: 'union Table1, Table2', ex: 'union DeviceProcessEvents, DeviceNetworkEvents', why: 'Stacks rows from multiple tables into one result, even with different columns. This is how you build a single chronological timeline across several log sources.' },
+      { name: 'mv-expand Col', ex: '| mv-expand IPAddresses', why: 'Expands an array-valued column into one row per array element — needed whenever a field holds a list instead of a single value.' },
+    ],
+  },
+  {
+    category: 'Time', color: '#2be8ff',
+    ops: [
+      { name: 'ago(timespan)', ex: 'TimeGenerated > ago(24h)', why: 'Computes a timestamp N units before "now" — the standard way to express a rolling time window like "the last 24 hours."' },
+      { name: 'timespan literals', ex: '30m, 24h, 7d', why: 'Shorthand duration values — s (seconds), m (minutes), h (hours), d (days) — used with `ago()` and `bin()`.' },
+      { name: 'datetime subtraction', ex: 'abs(T1 - T2) < 900000', why: 'Subtracting two datetimes gives a millisecond difference — the basis for "were these two events within X minutes of each other."' },
+    ],
+  },
+  {
+    category: 'Variables', color: '#8ea3b0',
+    ops: [
+      { name: 'let name = value;', ex: 'let Threshold = 10;', why: 'Defines a reusable variable (or even a sub-query) at the top of a statement, so you can reference it later without repeating yourself.' },
+    ],
+  },
+];
+
+function renderOperatorGuide() {
+  const backAction = state.player.name ? 'goto-dashboard' : 'goto-onboarding';
+  return `<div class="operator-guide-screen">
+    <button class="btn btn-ghost small" data-action="${backAction}">← ${state.player.name ? 'Mission Control' : 'Back to Sign In'}</button>
+    <h2 class="section-title">📖 KQL OPERATOR GUIDE</h2>
+    <p class="casefiles-intro">A quick readthrough before you dive in — every operator you'll actually use in this game, and <b>why</b> a real analyst reaches for it. Nothing here is guided practice; the missions are where you'll use these for real.</p>
+    ${OPERATOR_GUIDE.map(section => `
+      <div class="op-guide-section" style="--seccolor:${section.color}">
+        <div class="op-guide-section-head">${esc(section.category)}</div>
+        ${section.ops.map(o => `
+          <div class="op-guide-row">
+            <div class="op-guide-name">${esc(o.name)}</div>
+            <div class="op-guide-body">
+              <code class="op-guide-ex">${esc(o.ex)}</code>
+              <div class="op-guide-why">${esc(o.why)}</div>
+            </div>
+          </div>`).join('')}
+      </div>`).join('')}
   </div>`;
 }
 
@@ -3347,7 +3498,7 @@ function renderCaseFile() {
 // ---------------- KQL editor (plain, reliable — no HTML-overlay highlighting) ----------------
 // ---------------- IntelliSense-style autocomplete (Sentinel/KQL-editor-like) ----------------
 const KQL_OP_SUGGESTIONS = ['where', 'project', 'project-away', 'project-rename', 'extend', 'summarize', 'distinct', 'sort by', 'order by', 'take', 'limit', 'top', 'count', 'join', 'union', 'mv-expand', 'let', 'search'].map(l => ({ label: l, type: 'op' }));
-const KQL_KW_SUGGESTIONS = ['and', 'or', 'not', 'in', 'asc', 'desc', 'by', 'kind=inner', 'kind=leftouter', 'kind=leftanti', 'contains', 'has', 'startswith', 'endswith'].map(l => ({ label: l, type: 'kw' }));
+const KQL_KW_SUGGESTIONS = ['and', 'or', 'not', 'in', 'asc', 'desc', 'by', 'kind=inner', 'kind=leftouter', 'kind=leftanti', 'contains', 'has', 'has_any', 'has_all', 'startswith', 'endswith', 'matches regex'].map(l => ({ label: l, type: 'kw' }));
 const KQL_FN_SUGGESTIONS = ['ago(', 'now()', 'count()', 'countif(', 'dcount(', 'avg(', 'min(', 'max(', 'sum(', 'bin(', 'tolower(', 'toupper(', 'isempty(', 'isnotempty(', 'strcat(', 'strlen(', 'tostring(', 'toint(', 'toreal(', 'todatetime(', 'parse_json(', 'iff(', 'case(', 'split(', 'dynamic(', 'round(', 'abs('].map(l => ({ label: l, type: 'fn' }));
 const KQL_TABLE_SUGGESTIONS = Object.keys(TABLE_COLUMNS).map(l => ({ label: l, type: 'table' }));
 const SUGGEST_TYPE_TAG = { op: 'OP', kw: 'KW', fn: 'FN', col: 'COL', table: 'TBL' };
@@ -3437,11 +3588,15 @@ function acceptSuggestion(ta) {
   const after = ta.value.slice(suggestState.end);
   let insertText = item.label;
   if (item.type === 'op') {
-    // Operators start a new pipeline stage — if the user hasn't typed a leading '|' yet
-    // (e.g. they just pressed Enter to a new line), add one automatically so accepting a
-    // suggestion can never silently produce an invalid query.
-    const trimmedBefore = before.replace(/\s+$/, '');
-    const needsPipe = trimmedBefore.length > 0 && !trimmedBefore.endsWith('|');
+    // Operators start a new pipeline stage — but only auto-insert a leading '|' when the
+    // player is starting a genuinely fresh line (e.g. just pressed Enter with nothing else
+    // typed yet). If there's already content earlier on the SAME line (e.g. "order by "),
+    // they're completing part of an existing stage, not starting a new one — inserting a
+    // pipe there would silently break the query (this was a real bug).
+    const lineStart = before.lastIndexOf('\n') + 1;
+    const currentLineBeforeToken = before.slice(lineStart).trim();
+    const overallBefore = before.trim();
+    const needsPipe = currentLineBeforeToken === '' && overallBefore !== '' && !overallBefore.endsWith('|');
     if (needsPipe) insertText = '| ' + insertText;
   }
   if (item.type === 'op' || item.type === 'kw' || item.type === 'table') insertText += ' ';
@@ -3504,13 +3659,22 @@ function setupDailyEditor() {
   }, (v) => { state._dailyDraftQuery = v; }, 'run-daily-quest');
 }
 
+// Only these are genuinely complete pipeline stages on their own — function/expression
+// fragments like count(), contains, ago(24h) are always used INSIDE an existing where/
+// summarize/extend clause and must never get an automatic leading pipe.
+const STAGE_STARTER_CHIPS = new Set(['where', 'project', 'extend', 'summarize ... by', 'distinct', 'sort by ... desc', 'take 10', 'join kind=inner () on']);
 function insertAtCursor(text, taId) {
   const ta = document.getElementById(taId || 'kql-editor');
   if (!ta) return;
   const s = ta.selectionStart, en = ta.selectionEnd;
   const before = ta.value.slice(0, s), after = ta.value.slice(en);
-  const needsPipe = before.trim().length > 0 && !before.trim().endsWith('|') && /^(where|project|extend|summarize|distinct|sort|order|take|limit|top|count|join|union|mv-expand|search)/i.test(text);
-  const insert = needsPipe ? `\n| ${text}` : text;
+  // Same rule as autocomplete: only add a leading '|' when starting a genuinely fresh line
+  // with a true stage-starter chip — never mid-line, and never for expression fragments.
+  const lineStart = before.lastIndexOf('\n') + 1;
+  const currentLineBeforeCursor = before.slice(lineStart).trim();
+  const overallBefore = before.trim();
+  const needsPipe = STAGE_STARTER_CHIPS.has(text) && currentLineBeforeCursor === '' && overallBefore !== '' && !overallBefore.endsWith('|');
+  const insert = needsPipe ? `| ${text}` : text;
   ta.value = before + insert + after;
   ta.selectionStart = ta.selectionEnd = (before + insert).length;
   ta.dispatchEvent(new Event('input'));
@@ -3587,6 +3751,8 @@ function doAction(action, el) {
     case 'goto-badges': state.screen = 'badges'; render(); break;
     case 'goto-skilltree': state.screen = 'skilltree'; render(); break;
     case 'goto-casefiles': state.screen = 'dashboard'; state.dashboardTab = 'casefiles'; render(); break;
+    case 'goto-operators': state.screen = 'operators'; render(); break;
+    case 'goto-onboarding': state.screen = 'onboarding'; render(); break;
     case 'open-casefile': {
       state.currentCaseId = el.dataset.id;
       state.caseLastRows = null; state.caseLastError = null; state.caseGrade = null; state.caseShowAnswers = false;
@@ -3693,6 +3859,7 @@ function render() {
   else if (state.screen === 'skilltree') inner = renderSkillTree();
   else if (state.screen === 'casefile') inner = renderCaseFile();
   else if (state.screen === 'daily-quest') inner = renderDailyQuestScreen();
+  else if (state.screen === 'operators') inner = renderOperatorGuide();
   $app().innerHTML = hud + `<div class="screen-body">${inner}</div>` + resetModal;
   wireEvents();
   if (state.screen === 'mission') setupEditor();
