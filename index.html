@@ -227,6 +227,8 @@ a, .link{color:var(--cyan);}
 .level-chip{font-family:var(--disp);font-weight:700;font-size:12px;padding:3px 9px;border-radius:4px;background:var(--lvcolor,var(--cyan));color:#00131a;}
 .level-name{font-family:var(--disp);font-size:15px;letter-spacing:.05em;color:var(--text);}
 .level-progress{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted);}
+.level-block.locked-level{opacity:.55;}
+.locked-level-msg{font-size:12px;color:var(--muted2);padding:10px 4px;font-family:var(--mono);}
 .mission-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;}
 .mission-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;transition:all .15s;position:relative;}
 .mission-card:hover{border-color:var(--cyan);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.35);}
@@ -1280,7 +1282,108 @@ function buildDatabase(NOW, seed) {
 // ============================================================
 
 const MODULES = [
-  // ============== LEVEL 1 — KQL RECRUIT ==============
+  // ============== LEVEL 1 — KQL RECRUIT (absolute basics — zero prior KQL knowledge assumed) ==============
+  {
+    id: 'M00A', level: 1, title: 'First Contact', codename: 'HELLO, SIGNINLOGS', dataset: 'SigninLogs',
+    intro: `Welcome to the Nightwave Dynamics SOC, Analyst.\n\nEvery investigation starts the same way: open a table and look at what's actually in it. Nothing fancy yet — just get comfortable seeing raw data and picking the columns that matter.`,
+    steps: [
+      {
+        objective: 'Preview the SigninLogs table — return any 5 rows so you can see what a sign-in event looks like.',
+        thinkThrough: ['Every KQL query starts by naming a table.', 'How do you limit how many rows come back?'],
+        concepts: ['tables', 'take'], xp: 70,
+        solutionQuery: `SigninLogs | take 5`,
+        hints: ['A query starts with just the table name.', '`take N` returns the first N rows it sees — no filtering needed yet.', 'Try: `SigninLogs | take 5`'],
+        explainNote: 'This is the simplest possible KQL query: name a table, then `take` a small sample to see its shape.',
+      },
+      {
+        objective: 'That table has a lot of columns. Narrow it down to just UserPrincipalName.',
+        concepts: ['project'], xp: 90,
+        solutionQuery: `SigninLogs | take 5 | project UserPrincipalName`,
+        hints: ['`project` picks which columns survive.', 'Syntax: `| project ColumnName`', 'Try adding: `| project UserPrincipalName`'],
+        explainNote: '`project` reshapes each row down to only the columns you name.',
+      },
+      {
+        objective: 'Now widen it back out a little — show UserPrincipalName, IPAddress, and ResultType together.',
+        concepts: ['project'], xp: 90,
+        solutionQuery: `SigninLogs | take 5 | project UserPrincipalName, IPAddress, ResultType`,
+        hints: ['You can list several columns in one `project`, separated by commas.', 'This time, edit your existing `project` line rather than adding a new stage.', 'Try: `SigninLogs | take 5 | project UserPrincipalName, IPAddress, ResultType`'],
+      },
+      {
+        objective: 'Switch to a completely different table — preview DeviceProcessEvents and show just DeviceName and FileName.',
+        concepts: ['tables', 'project'], xp: 100,
+        solutionQuery: `DeviceProcessEvents | take 5 | project DeviceName, FileName`,
+        hints: ['Every table in this environment supports the same operators — only the column names change.', 'Start fresh with a new table name.', 'Try: `DeviceProcessEvents | take 5 | project DeviceName, FileName`'],
+        explainNote: 'Different log sources (sign-ins vs. endpoint processes) share the same query language — that consistency is exactly why KQL is worth learning once and reusing everywhere.',
+      },
+    ],
+  },
+  {
+    id: 'M00B', level: 1, title: 'Yes or No', codename: 'COMPARISON BASICS', dataset: 'SigninLogs',
+    intro: `Looking at every row isn't useful for long — real investigations need to ask yes/no questions about the data. This is where filtering begins.`,
+    steps: [
+      {
+        objective: 'Find every sign-in that succeeded. A ResultType of 0 means success.',
+        thinkThrough: ['Which operator keeps only rows matching a condition?'],
+        concepts: ['where', 'string comparison'], xp: 90,
+        solutionQuery: `SigninLogs | where ResultType == 0`,
+        hints: ['`where` filters rows by a condition.', 'Equality in KQL uses two equals signs: `==`.', 'Try: `SigninLogs | where ResultType == 0`'],
+        explainNote: '`where` is the single most-used operator in KQL — almost every investigation starts by narrowing down to the rows that matter.',
+      },
+      {
+        objective: 'Now flip it around — find every sign-in that did NOT succeed.',
+        concepts: ['where'], xp: 90,
+        solutionQuery: `SigninLogs | where ResultType != 0`,
+        hints: ['"Not equal to" in KQL is `!=`.', 'Edit your existing line — swap `==` for `!=`.', 'Try: `SigninLogs | where ResultType != 0`'],
+        explainNote: '`!=` catches every non-success code at once — much safer than trying to guess one specific failure reason.',
+      },
+      {
+        objective: 'Result codes above 50000 are all authentication-related error codes. Find sign-ins with a ResultType greater than 50000.',
+        concepts: ['where'], xp: 100,
+        solutionQuery: `SigninLogs | where ResultType > 50000`,
+        hints: ['KQL supports the usual comparison operators: `>`, `<`, `>=`, `<=`.', 'Try: `SigninLogs | where ResultType > 50000`'],
+      },
+      {
+        objective: 'Switch columns entirely — find every sign-in to the "Microsoft Teams" application.',
+        concepts: ['where', 'string comparison'], xp: 90,
+        solutionQuery: `SigninLogs | where AppDisplayName == "Microsoft Teams"`,
+        hints: ['Same pattern, different column: `where ColumnName == "value"`.', 'Try: `SigninLogs | where AppDisplayName == "Microsoft Teams"`'],
+      },
+    ],
+  },
+  {
+    id: 'M00C', level: 1, title: 'And, Or, Not', codename: 'COMBINING CONDITIONS', dataset: 'SigninLogs',
+    intro: `Real investigations almost never rely on a single condition. Learning to combine "and", "or", and "not" is what turns simple filters into real detections.`,
+    steps: [
+      {
+        objective: 'Find failed sign-ins (ResultType != 0) that also came from Russia (Location "RU").',
+        thinkThrough: ['You need BOTH conditions to be true at once — which keyword requires that?'],
+        concepts: ['where', 'and/or'], xp: 100,
+        solutionQuery: `SigninLogs | where ResultType != 0 and Location == "RU"`,
+        hints: ['`and` requires both sides to be true.', 'Try: `SigninLogs | where ResultType != 0 and Location == "RU"`'],
+      },
+      {
+        objective: 'Now change it to match EITHER condition — a failed sign-in, OR one from Russia (or both).',
+        concepts: ['where', 'and/or'], xp: 110,
+        solutionQuery: `SigninLogs | where ResultType != 0 or Location == "RU"`,
+        hints: ['`or` only needs one side to be true.', 'This will match many more rows than `and` did — that difference is the whole point.', 'Edit your existing line: swap `and` for `or`.'],
+        explainNote: '`and` narrows results (both must be true); `or` widens them (either can be true). Mixing them up is one of the most common real-world KQL mistakes.',
+      },
+      {
+        objective: 'Express "not successful" using the `not` keyword instead of `!=`, just so you\'ve seen both styles.',
+        concepts: ['where', 'not'], xp: 90,
+        solutionQuery: `SigninLogs | where not(ResultType == 0)`,
+        hints: ['`not(condition)` negates whatever is inside the parentheses.', 'Try: `SigninLogs | where not(ResultType == 0)`'],
+        explainNote: '`not(X == 0)` and `X != 0` mean exactly the same thing — KQL (like most languages) usually gives you more than one way to say something.',
+      },
+      {
+        objective: 'Combine everything: find failed sign-ins from Russia, OR failed sign-ins from Germany — using parentheses to group each pair of conditions clearly.',
+        concepts: ['where', 'and/or'], xp: 130,
+        solutionQuery: `SigninLogs | where (ResultType != 0 and Location == "RU") or (ResultType != 0 and Location == "DE")`,
+        hints: ['Wrap each "and" pair in its own parentheses, then join the two groups with `or`.', 'Try: `SigninLogs | where (ResultType != 0 and Location == "RU") or (ResultType != 0 and Location == "DE")`'],
+        explainNote: 'Parentheses make multi-condition logic unambiguous — exactly like in math or any programming language. Real detection rules often look exactly like this.',
+      },
+    ],
+  },
   {
     id: 'M01', level: 1, title: 'The Midnight Login', codename: 'INCIDENT 02:47', dataset: 'SigninLogs',
     intro: `🚨 It's 02:47 AM. The Nightwave Dynamics SOC has received an alert that an employee account may be compromised.\n\nYour incident responder asks: "Can you find the failed sign-in attempts? Start broad, then narrow it down with me."`,
@@ -1351,7 +1454,7 @@ const MODULES = [
     ],
   },
   {
-    id: 'M03', level: 2, title: 'Search & Narrow', codename: 'FREE-TEXT SWEEP', dataset: 'DeviceProcessEvents',
+    id: 'M03', level: 3, title: 'Search & Narrow', codename: 'FREE-TEXT SWEEP', dataset: 'DeviceProcessEvents',
     intro: `A threat intel report just landed with one keyword: "powershell." You don't know which column it lives in yet — so start broad, then narrow once you find it.`,
     steps: [
       {
@@ -1399,7 +1502,7 @@ const MODULES = [
 
   // ============== LEVEL 3 — HUNTER ==============
   {
-    id: 'M05', level: 3, title: 'The Spray', codename: 'BOSS — THE PASSWORD SPRAYER', boss: true, dataset: 'SigninLogs',
+    id: 'M05', level: 5, title: 'The Spray', codename: 'BOSS — THE PASSWORD SPRAYER', boss: true, dataset: 'SigninLogs',
     intro: `👾 BOSS BATTLE\n\nMultiple employees report suspicious login notifications. The SOC believes someone is running a password-spraying attack — many accounts, few attempts each, inside a tight time window, from the same source.\n\nBuild the detector one stage at a time.`,
     steps: [
       {
@@ -1433,7 +1536,7 @@ const MODULES = [
     ],
   },
   {
-    id: 'M06', level: 3, title: 'How Many Doors', codename: 'SOURCE DIVERSITY', dataset: 'SigninLogs',
+    id: 'M06', level: 4, title: 'How Many Doors', codename: 'SOURCE DIVERSITY', dataset: 'SigninLogs',
     intro: `A single user failing logins from one IP is usually just a typo. The same user failing from many different IPs is a different story entirely.`,
     steps: [
       { objective: 'Start with every failed sign-in.', concepts: ['where'], xp: 90, solutionQuery: `SigninLogs | where ResultType != 0`, hints: ['`SigninLogs | where ResultType != 0`'] },
@@ -1464,7 +1567,7 @@ const MODULES = [
     ],
   },
   {
-    id: 'M08', level: 4, title: 'Staying Power', codename: 'PERSISTENCE MECHANISM', dataset: 'DeviceProcessEvents',
+    id: 'M08', level: 6, title: 'Staying Power', codename: 'PERSISTENCE MECHANISM', dataset: 'DeviceProcessEvents',
     intro: `An attacker who gets in once wants to survive a reboot. One of the oldest tricks: register a scheduled task that keeps re-launching their payload.`,
     steps: [
       { objective: 'Find every use of schtasks.exe, the built-in Windows scheduled-task tool.', concepts: ['where', 'LOLBins'], xp: 130, solutionQuery: `DeviceProcessEvents | where FileName == "schtasks.exe"`, hints: ['`FileName == "schtasks.exe"`'] },
@@ -1473,7 +1576,7 @@ const MODULES = [
     ],
   },
   {
-    id: 'M09', level: 4, title: 'Follow the Payload', codename: 'DROPPED FILE', dataset: 'DeviceFileEvents',
+    id: 'M09', level: 6, title: 'Follow the Payload', codename: 'DROPPED FILE', dataset: 'DeviceFileEvents',
     intro: `The scheduled task pointed at a script file on disk. Find where and when it was written.`,
     steps: [
       { objective: 'Find the file named "upd.ps1".', concepts: ['where'], xp: 120, solutionQuery: `DeviceFileEvents | where FileName == "upd.ps1"`, hints: ['`FileName == "upd.ps1"`'] },
@@ -1481,7 +1584,7 @@ const MODULES = [
     ],
   },
   {
-    id: 'M10', level: 4, title: 'The Beacon', codename: 'PHONE HOME', dataset: 'DeviceNetworkEvents',
+    id: 'M10', level: 6, title: 'The Beacon', codename: 'PHONE HOME', dataset: 'DeviceNetworkEvents',
     intro: `Malware that lands on a host almost always "phones home." Regular, repeated connections to the same odd destination are the tell.`,
     steps: [
       { objective: 'Count connections grouped by device and destination domain.', concepts: ['summarize'], xp: 160, solutionQuery: `DeviceNetworkEvents | summarize Connections=count() by DeviceName, RemoteUrl`, hints: ['Group by two columns at once, separated by a comma.', 'Try: `DeviceNetworkEvents | summarize Connections=count() by DeviceName, RemoteUrl`'] },
@@ -1492,7 +1595,7 @@ const MODULES = [
 
   // ============== LEVEL 5 — THREAT HUNTER ==============
   {
-    id: 'M11', level: 5, title: 'Connect the Dots', codename: 'CROSS-SOURCE JOIN', dataset: 'SigninLogs + DeviceProcessEvents',
+    id: 'M11', level: 7, title: 'Connect the Dots', codename: 'CROSS-SOURCE JOIN', dataset: 'SigninLogs + DeviceProcessEvents',
     intro: `You suspect the account under attack in the sign-in logs is the same one running suspicious processes on an endpoint — but SigninLogs uses full UPNs and DeviceProcessEvents uses bare account names.`,
     steps: [
       { objective: 'Start with the failed sign-ins, as always.', concepts: ['where'], xp: 90, solutionQuery: `SigninLogs | where ResultType != 0`, hints: ['`SigninLogs | where ResultType != 0`'] },
@@ -1501,7 +1604,7 @@ const MODULES = [
     ],
   },
   {
-    id: 'M12', level: 5, title: 'Impossible Travel', codename: 'BOSS — TWO PLACES AT ONCE', boss: true, dataset: 'SigninLogs',
+    id: 'M12', level: 8, title: 'Impossible Travel', codename: 'BOSS — TWO PLACES AT ONCE', boss: true, dataset: 'SigninLogs',
     intro: `👾 BOSS BATTLE\n\nA classic detection: the same account successfully signs in from two different countries within minutes of each other. No human travels that fast.`,
     steps: [
       { objective: 'Start with every successful sign-in.', concepts: ['where'], xp: 100, solutionQuery: `SigninLogs | where ResultType == 0`, hints: ['`SigninLogs | where ResultType == 0`'] },
@@ -1529,7 +1632,7 @@ const MODULES = [
     ],
   },
   {
-    id: 'M13', level: 5, title: 'Known Bad Sources', codename: 'THREAT INTEL MATCH', dataset: 'SigninLogs',
+    id: 'M13', level: 9, title: 'Known Bad Sources', codename: 'THREAT INTEL MATCH', dataset: 'SigninLogs',
     intro: `Your threat intel feed just published two IP addresses tied to an active campaign. Check whether either one has touched your environment.`,
     steps: [
       { objective: 'Find every sign-in from the first known-bad IP, 185.220.101.47.', concepts: ['where'], xp: 120, solutionQuery: `SigninLogs | where IPAddress == "185.220.101.47"`, hints: ['`IPAddress == "185.220.101.47"`'] },
@@ -1545,7 +1648,7 @@ const MODULES = [
 
   // ============== LEVEL 6 — SOC OPERATOR ==============
   {
-    id: 'M14', level: 6, title: 'The Full Chain', codename: 'ONE DEVICE, MANY CLUES', dataset: 'DeviceProcessEvents + DeviceNetworkEvents',
+    id: 'M14', level: 9, title: 'The Full Chain', codename: 'ONE DEVICE, MANY CLUES', dataset: 'DeviceProcessEvents + DeviceNetworkEvents',
     intro: `FIN-WKS-014 has been flagged as compromised. Before the incident report, you need every piece of activity from that device — process launches AND network connections — in one timeline.`,
     steps: [
       { objective: 'Stack DeviceProcessEvents and DeviceNetworkEvents into a single combined result.', concepts: ['union'], xp: 180, solutionQuery: `union DeviceProcessEvents, DeviceNetworkEvents`, hints: ['`join` matches columns across tables; `union Table1, Table2` instead just stacks all their rows together, even with different columns.', 'Try: `union DeviceProcessEvents, DeviceNetworkEvents`'] },
@@ -1554,7 +1657,7 @@ const MODULES = [
     ],
   },
   {
-    id: 'M15', level: 6, title: 'The Origin Story', codename: 'ROOT CAUSE', dataset: 'DeviceProcessEvents',
+    id: 'M15', level: 10, title: 'The Origin Story', codename: 'ROOT CAUSE', dataset: 'DeviceProcessEvents',
     intro: `You know PowerShell ran maliciously on FIN-WKS-014. Now find out what launched it in the first place — the root cause of the entire incident.`,
     steps: [
       { objective: 'Find the powershell.exe process event.', concepts: ['where'], xp: 100, solutionQuery: `DeviceProcessEvents | where FileName == "powershell.exe"`, hints: ['`FileName == "powershell.exe"`'] },
@@ -1562,7 +1665,7 @@ const MODULES = [
     ],
   },
   {
-    id: 'M16', level: 6, title: 'No Spoon-Feeding', codename: 'INVESTIGATE THE ANOMALY', dataset: 'DeviceNetworkEvents',
+    id: 'M16', level: 10, title: 'No Spoon-Feeding', codename: 'INVESTIGATE THE ANOMALY', dataset: 'DeviceNetworkEvents',
     intro: `Something on FIN-WKS-014 is reaching out to the internet at a suspicious cadence. Investigate on your own this time — minimal hand-holding.`,
     steps: [
       { objective: 'Filter to the one compromised device.', concepts: ['where'], xp: 100, solutionQuery: `DeviceNetworkEvents | where DeviceName == "FIN-WKS-014"`, hints: ['You\'ve done this before.'] },
@@ -1577,38 +1680,40 @@ const MODULES = [
 // so these reset per-stage rather than chaining — the "new scenario" boundary IS the point.
 const NIGHTFALL_MODULES = [
   {
-    id: 'NF01', level: 7, campaign: 'nightfall', title: 'Operation Nightfall — Stage 1', codename: 'THE COMPROMISED ACCOUNT', boss: true, dataset: 'SigninLogs',
+    id: 'NF01', level: 11, campaign: 'nightfall', title: 'Operation Nightfall — Stage 1', codename: 'THE COMPROMISED ACCOUNT', boss: true, dataset: 'SigninLogs',
     intro: `☠️ OPERATION NIGHTFALL\n\nNightwave Dynamics is under a coordinated attack. Your SOC lead needs an incident timeline built from scratch, one stage at a time.\n\nStage 1: identify the victim.`,
     steps: [{ objective: 'Identify the single UserPrincipalName with the most failed sign-in attempts overall.', concepts: ['summarize', 'synthesis'], xp: 300, solutionQuery: `SigninLogs | where ResultType != 0 | summarize FailedAttempts=count() by UserPrincipalName | sort by FailedAttempts desc | take 1`, hints: ['You\'ve built this exact query before.', 'Try: `SigninLogs | where ResultType != 0 | summarize FailedAttempts=count() by UserPrincipalName | sort by FailedAttempts desc | take 1`'] }],
   },
   {
-    id: 'NF02', level: 7, campaign: 'nightfall', title: 'Operation Nightfall — Stage 2', codename: 'THE SOURCE', boss: true, dataset: 'SigninLogs',
+    id: 'NF02', level: 11, campaign: 'nightfall', title: 'Operation Nightfall — Stage 2', codename: 'THE SOURCE', boss: true, dataset: 'SigninLogs',
     intro: `Stage 2: find where the attack is coming from — the IP behind the successful, suspicious sign-in on that account.`,
     steps: [{ objective: 'Find the IPAddress of the successful sign-in for jchen@nightwave.io from a non-US location.', concepts: ['where'], xp: 300, solutionQuery: `SigninLogs | where UserPrincipalName == "jchen@nightwave.io" and ResultType == 0 and Location != "US"`, hints: ['Filter to the account, the success, and a non-US location, all at once.'] }],
   },
   {
-    id: 'NF03', level: 7, campaign: 'nightfall', title: 'Operation Nightfall — Stage 3', codename: 'PATIENT ZERO', boss: true, dataset: 'DeviceProcessEvents',
+    id: 'NF03', level: 11, campaign: 'nightfall', title: 'Operation Nightfall — Stage 3', codename: 'PATIENT ZERO', boss: true, dataset: 'DeviceProcessEvents',
     intro: `Stage 3: somewhere, opening an attachment gave the attacker code execution on a workstation. Find patient zero.`,
     steps: [{ objective: 'Find the process event where winword.exe spawned another process.', concepts: ['where', 'process ancestry'], xp: 300, solutionQuery: `DeviceProcessEvents | where InitiatingProcessFileName == "winword.exe"`, hints: ['Check the InitiatingProcessFileName column for Word.'] }],
   },
   {
-    id: 'NF04', level: 7, campaign: 'nightfall', title: 'Operation Nightfall — Stage 4', codename: 'THE PAYLOAD CHANNEL', boss: true, dataset: 'DeviceNetworkEvents',
+    id: 'NF04', level: 11, campaign: 'nightfall', title: 'Operation Nightfall — Stage 4', codename: 'THE PAYLOAD CHANNEL', boss: true, dataset: 'DeviceNetworkEvents',
     intro: `Stage 4: the malicious PowerShell needed to fetch its next-stage payload. Find the command-and-control channel.`,
     steps: [{ objective: 'Find the remote domain contacted by powershell.exe on the compromised device.', concepts: ['where'], xp: 300, solutionQuery: `DeviceNetworkEvents | where InitiatingProcessFileName == "powershell.exe" | distinct RemoteUrl`, hints: ['Filter to connections initiated by powershell.exe, then get the unique destination.'] }],
   },
   {
-    id: 'NF05', level: 7, campaign: 'nightfall', title: 'Operation Nightfall — Stage 5', codename: 'DIGGING IN', boss: true, dataset: 'DeviceProcessEvents',
+    id: 'NF05', level: 11, campaign: 'nightfall', title: 'Operation Nightfall — Stage 5', codename: 'DIGGING IN', boss: true, dataset: 'DeviceProcessEvents',
     intro: `Stage 5: an attacker with C2 access rarely stops at one machine. First they make sure they can survive a reboot.`,
     steps: [{ objective: 'Find the schtasks.exe event that created a new scheduled task.', concepts: ['where', 'LOLBins'], xp: 300, solutionQuery: `DeviceProcessEvents | where FileName == "schtasks.exe" and ProcessCommandLine contains "/create"`, hints: ['You solved this exact pattern earlier in your training.'] }],
   },
   {
-    id: 'NF06', level: 7, campaign: 'nightfall', title: 'Operation Nightfall — Final Stage', codename: 'THE FINAL TIMELINE', boss: true, dataset: 'DeviceProcessEvents + DeviceNetworkEvents + DeviceFileEvents',
+    id: 'NF06', level: 11, campaign: 'nightfall', title: 'Operation Nightfall — Final Stage', codename: 'THE FINAL TIMELINE', boss: true, dataset: 'DeviceProcessEvents + DeviceNetworkEvents + DeviceFileEvents',
     intro: `☠️ FINAL STAGE\n\nYou have every piece. Now build the artifact every incident commander needs — a unified timeline of everything that happened on the compromised endpoint.`,
     steps: [{ objective: 'Union DeviceProcessEvents, DeviceNetworkEvents, and DeviceFileEvents for FIN-WKS-014, sorted chronologically.', concepts: ['union', 'synthesis'], xp: 1000, solutionQuery: `union DeviceProcessEvents, DeviceNetworkEvents, DeviceFileEvents | where DeviceName == "FIN-WKS-014" | sort by TimeGenerated asc`, hints: ['You need rows from three tables stacked together — union, not join.', 'Try: `union DeviceProcessEvents, DeviceNetworkEvents, DeviceFileEvents | where DeviceName == "FIN-WKS-014" | sort by TimeGenerated asc`'], badge: 'nightfall_survivor', explainNote: 'This is what a real incident timeline looks like — every log source, one device, one chronological story.' }],
   },
 ];
 
-const ALL_MODULES = [...MODULES, ...NIGHTFALL_MODULES];
+// Stable-sort by level so the linear play sequence always matches the level numbers,
+// regardless of the order modules happen to be declared in above.
+const ALL_MODULES = [...MODULES, ...NIGHTFALL_MODULES].sort((a, b) => a.level - b.level);
 
 // Flatten into individually-addressable steps for progress tracking, while keeping
 // module metadata attached to each one (for the step-tracker UI and query carry-over).
@@ -2542,9 +2647,18 @@ function renderDashboard() {
 
 function renderTrainingTab() {
   const p = state.player;
-  const levelNames = { 1: 'KQL RECRUIT', 2: 'DATA TRACKER', 3: 'HUNTER', 4: 'INVESTIGATOR', 5: 'THREAT HUNTER', 6: 'SOC OPERATOR', 7: 'OPERATION NIGHTFALL' };
-  const levelColor = { 1: '#39ff88', 2: '#3ec6ff', 3: '#b76bff', 4: '#ffb020', 5: '#ff5b5b', 6: '#8ea3b0', 7: '#ff2ec4' };
-  const levelIcon = { 1: '🟢', 2: '🔵', 3: '🟣', 4: '🟠', 5: '🔴', 6: '⚫', 7: '☠️' };
+  const levelNames = {
+    1: 'KQL RECRUIT', 2: 'DATA TRACKER', 3: 'SEARCH SPECIALIST', 4: 'DATA SHAPER',
+    5: 'TIME HUNTER', 6: 'ENDPOINT INVESTIGATOR', 7: 'CORRELATION ANALYST', 8: 'ELITE HUNTER',
+    9: 'THREAT INTEL ANALYST', 10: 'SOC OPERATOR', 11: 'OPERATION NIGHTFALL — FINAL EXAM',
+  };
+  const levelColor = {
+    1: '#39ff88', 2: '#3ec6ff', 3: '#2be8ff', 4: '#b76bff', 5: '#ff5b5b', 6: '#ffb020',
+    7: '#5b8cff', 8: '#ff3fa4', 9: '#ffd23f', 10: '#8ea3b0', 11: '#ff2ec4',
+  };
+  const levelIcon = {
+    1: '🟢', 2: '🔵', 3: '🔍', 4: '🟣', 5: '⏱️', 6: '🖥️', 7: '🔗', 8: '👾', 9: '🎯', 10: '⚫', 11: '☠️',
+  };
   const nextId = nextMissionId();
   const nextChallenge = nextId ? getChallengeById(nextId) : null;
 
@@ -2577,6 +2691,23 @@ function renderTrainingTab() {
     const mods = modulesByLevel[lv];
     const totalSteps = mods.reduce((a, m) => a + m.steps.length, 0);
     const doneSteps = mods.reduce((a, m) => a + moduleProgress(m.id).done, 0);
+    const levelFirstStepId = mods.length && mods[0].steps.length ? `${mods[0].id}_S1` : null;
+    const levelReached = levelFirstStepId ? isUnlocked(levelFirstStepId) : false;
+
+    if (!levelReached) {
+      // Whole level not yet reached — show a compact locked summary instead of spoiling module names.
+      html += `
+      <div class="level-block locked-level" style="--lvcolor:${levelColor[lv]}">
+        <div class="level-block-head">
+          <span class="level-chip">🔒 LEVEL ${lv}</span>
+          <span class="level-name">${levelNames[lv]}</span>
+          <span class="level-progress">${mods.length} scenario${mods.length === 1 ? '' : 's'} · ${totalSteps} questions</span>
+        </div>
+        <div class="locked-level-msg">Complete Level ${lv - 1} to unlock this level.</div>
+      </div>`;
+      return;
+    }
+
     html += `
     <div class="level-block" style="--lvcolor:${levelColor[lv]}">
       <div class="level-block-head">
