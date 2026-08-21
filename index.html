@@ -6,6 +6,7 @@
 <title>KQL QUEST — Hunt. Query. Investigate. Level Up.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root{
   --bg:#060a10; --bg2:#080e16;
@@ -180,6 +181,14 @@ a, .link{color:var(--cyan);}
 .case-q-hint{margin-top:6px;font-size:12px;color:var(--amber);}
 .case-q-answer{margin-top:6px;font-size:12px;color:var(--cyan);background:var(--bg2);border-radius:6px;padding:6px 8px;}
 .case-report-actions{display:flex;gap:10px;margin-top:8px;}
+.case-tab-bar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:8px;}
+.case-tab{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--border);border-bottom:none;border-radius:8px 8px 0 0;padding:7px 12px;cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--muted);}
+.case-tab:hover{color:var(--text);}
+.case-tab.active{background:var(--panel);border-color:var(--purple);color:var(--purple);font-weight:700;}
+.case-tab-close{opacity:.6;font-size:11px;}
+.case-tab-close:hover{opacity:1;color:var(--red);}
+.case-tab-add{background:transparent;border:1px dashed var(--border-lit);border-radius:8px;padding:7px 12px;color:var(--muted);font-family:var(--mono);font-size:12px;}
+.case-tab-add:hover{border-color:var(--purple);color:var(--purple);}
 
 /* ---------------- Sentinel-style incident record ---------------- */
 .incident-record{background:#0a0f16;border:1px solid var(--border-lit);border-radius:10px;padding:14px;margin-bottom:14px;}
@@ -2180,6 +2189,130 @@ const CASE_FILES = [
       },
     },
   },
+  {
+    id: 'CASE03',
+    title: 'Ghost in Two Places',
+    difficulty: 5,
+    xpPerQuestion: 130,
+    bonusXp: 350,
+    badge: null,
+    datasets: ['SigninLogs'],
+    briefing: `📁 CASE FILE — GHOST IN TWO PLACES\n\nEntra ID Protection just fired an "impossible travel" alert: the same account signed in successfully from two different countries within minutes of each other. Before anyone panics, your job is to confirm this is real (not a VPN artifact) and write it up.`,
+    startingTip: 'Try starting with: SigninLogs | where UserPrincipalName == "jchen@nightwave.io" and ResultType == 0',
+    incident: {
+      incidentId: 'INC-2127',
+      severity: 'High',
+      openedLabel: 'Opened ~2 hours ago',
+      owner: 'Unassigned — assigned to you on open',
+      alerts: [
+        { name: 'Impossible travel activity detected', product: 'Microsoft Entra ID Protection', severity: 'High' },
+        { name: 'Sign-in from an unfamiliar location', product: 'Microsoft Entra ID Protection', severity: 'Medium' },
+      ],
+      entities: [{ type: 'Account', value: 'jchen@nightwave.io' }],
+      tactics: ['Initial Access', 'Defense Evasion'],
+      techniques: [{ id: 'T1078', name: 'Valid Accounts' }],
+    },
+    questions: {
+      who: {
+        prompt: 'WHO is the account involved in this impossible travel event?',
+        mode: 'keywords', accepted: ['jchen', 'jchen@nightwave.io'],
+        hint: 'Filter SigninLogs to successful sign-ins and look for one account with two very different locations close together in time.',
+        modelAnswer: 'jchen@nightwave.io',
+      },
+      what: {
+        prompt: 'WHAT makes this "impossible" — describe the anomaly in one sentence.',
+        mode: 'keywords', accepted: ['two locations', 'different countries', 'different location', 'same account', 'minutes apart', 'two countries', 'both succeeded'],
+        hint: 'The same account had two SUCCESSFUL sign-ins, not a success and a failure.',
+        modelAnswer: 'The same account successfully signed in from two different countries within minutes — no human can travel that fast.',
+      },
+      when: {
+        prompt: 'WHEN (how many minutes apart) did the two sign-ins occur?',
+        mode: 'regex', pattern: '\\d+\\s*(m|min|mins|minute|minutes)',
+        hint: 'Compare the TimeGenerated values of the two successful sign-ins directly.',
+        modelAnswer: 'About 4 minutes apart.',
+      },
+      where: {
+        prompt: 'WHERE (which two locations) did the sign-ins originate from?',
+        mode: 'keywords', accepted: ['ru', 'russia', 'us', 'united states', '185.220.101.47'],
+        hint: 'Check the Location and IPAddress columns on both successful events.',
+        modelAnswer: 'One from Russia (185.220.101.47), one from a US office IP.',
+      },
+      why: {
+        prompt: 'WHY does this get scored as high severity instead of being dismissed as a VPN artifact?',
+        mode: 'keywords', accepted: ['impossible', 'cannot travel', 'physically impossible', 'too fast', "can't travel", 'compromised', 'not humanly possible'],
+        hint: 'Think about the physical constraint that makes this different from an employee just using a VPN.',
+        modelAnswer: 'It is physically impossible to travel between those two countries in four minutes, so one of the two sign-ins almost certainly did not come from the real user.',
+      },
+      how: {
+        prompt: 'HOW would you confirm this is malicious rather than a VPN/proxy false positive — what else would you check?',
+        mode: 'keywords', accepted: ['failed attempts', 'brute force', 'ip reputation', 'known bad', 'malicious ip', 'endpoint', 'process', 'powershell', 'correlate', 'other sign-ins', 'other activity'],
+        hint: 'A single anomalous sign-in is a clue, not proof — what else in the environment would corroborate compromise?',
+        modelAnswer: 'Check whether the same account or IP shows other suspicious activity — failed sign-in attempts beforehand, known-bad IP reputation, or malicious endpoint activity tying back to the account.',
+      },
+    },
+  },
+  {
+    id: 'CASE04',
+    title: 'The Silent Beacon',
+    difficulty: 5,
+    xpPerQuestion: 130,
+    bonusXp: 350,
+    badge: null,
+    datasets: ['DeviceNetworkEvents', 'DeviceProcessEvents'],
+    briefing: `📁 CASE FILE — THE SILENT BEACON\n\nMicrosoft Defender flagged a workstation for repeated connections to an unfamiliar external domain — a classic command-and-control pattern. Investigate the network activity, trace it back to the responsible process, and report your findings.`,
+    startingTip: 'Try starting with: DeviceNetworkEvents | where DeviceName == "FIN-WKS-014" | summarize count() by RemoteUrl',
+    incident: {
+      incidentId: 'INC-2133',
+      severity: 'High',
+      openedLabel: 'Opened ~2 hours ago',
+      owner: 'Unassigned — assigned to you on open',
+      alerts: [
+        { name: 'Repeated connections to a newly-seen domain', product: 'Microsoft Defender for Endpoint', severity: 'High' },
+        { name: 'Suspicious outbound network pattern', product: 'Microsoft Sentinel Analytics', severity: 'Medium' },
+      ],
+      entities: [{ type: 'Device', value: 'FIN-WKS-014' }],
+      tactics: ['Command and Control'],
+      techniques: [{ id: 'T1071', name: 'Application Layer Protocol' }, { id: 'T1105', name: 'Ingress Tool Transfer' }],
+    },
+    questions: {
+      who: {
+        prompt: 'WHO (which process) is initiating the suspicious connections?',
+        mode: 'keywords', accepted: ['powershell', 'powershell.exe'],
+        hint: 'Check the InitiatingProcessFileName column on the network events going to the unfamiliar domain.',
+        modelAnswer: 'powershell.exe',
+      },
+      what: {
+        prompt: 'WHAT is happening — describe the network behavior in one sentence.',
+        mode: 'keywords', accepted: ['beacon', 'repeated connection', 'callback', 'c2', 'command and control', 'phone home', 'check in', 'checking in'],
+        hint: 'One connection is nothing. What does a repeating pattern to the same destination usually mean?',
+        modelAnswer: 'The device is repeatedly beaconing out to the same external domain — a command-and-control check-in pattern.',
+      },
+      when: {
+        prompt: 'WHEN (roughly how often) do the connections repeat?',
+        mode: 'regex', pattern: '\\d+\\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours)',
+        hint: 'Look at the time gap between consecutive connections to the same domain.',
+        modelAnswer: 'Roughly every 15 minutes.',
+      },
+      where: {
+        prompt: 'WHERE (domain and/or IP) is the device connecting to?',
+        mode: 'keywords', accepted: ['cdn-analytics-update.net', '91.219.237.15'],
+        hint: 'Check the RemoteUrl and RemoteIP columns.',
+        modelAnswer: 'cdn-analytics-update.net (91.219.237.15).',
+      },
+      why: {
+        prompt: 'WHY does a repeating pattern to the same unfamiliar domain matter more than a single one-off connection?',
+        mode: 'keywords', accepted: ['persist', 'regular interval', 'recurring', 'repeated', 'automat', 'script', 'checking in', 'maintain control', 'maintain access'],
+        hint: 'Legitimate browsing is irregular and driven by a human; malware beacons are regular and driven by a script.',
+        modelAnswer: 'Regular, automated check-ins to the same domain indicate a script or implant maintaining contact with an attacker, not normal human browsing.',
+      },
+      how: {
+        prompt: 'HOW did this network activity most likely get started — what would you check next to find the root cause?',
+        mode: 'keywords', accepted: ['process', 'initiating process', 'parent process', 'powershell', 'malicious file', 'check the process', 'file event', 'dropped file'],
+        hint: 'You already know which process is beaconing — now trace what launched THAT process, and whether it dropped anything to disk.',
+        modelAnswer: 'Trace the parent process of powershell.exe and check DeviceFileEvents for anything it wrote to disk around the same time — that\'s the initial infection vector.',
+      },
+    },
+  },
 ];
 
 // ============ LEVELING ============
@@ -2296,9 +2429,10 @@ let state = {
   readthroughLevel: null,
   pendingMissionId: null,
   showOperatorPanel: false,
+  showCertificateModal: false,
   currentCaseId: null,
-  caseLastRows: null,
-  caseLastError: null,
+  caseTabs: [],          // [{ query, lastRows, lastError }] — multiple independent query tabs per investigation
+  activeCaseTab: 0,
   caseGrade: null,         // { who: bool, what: bool, ... } from the most recent submit
   caseJustAwarded: null,   // { xp, newlyCorrect: [...] } for the success toast
   caseShowAnswers: false,
@@ -2349,6 +2483,10 @@ function allMissionsInOrder() {
   return ALL_STEPS; // already curated in learning order, grouped by module, including boss stages
 }
 function isCompleted(id) { return !!(state.player.completed[id]); }
+function isTrainingComplete() { return ALL_STEPS.every(s => isCompleted(s.id)); }
+function trainingProgressCounts() {
+  return { done: ALL_STEPS.filter(s => isCompleted(s.id)).length, total: ALL_STEPS.length };
+}
 
 function nextMissionId() {
   // pending synthetic review missions take priority
@@ -2486,13 +2624,16 @@ function gradeCaseQuestion(q, answerText) {
   }
   return (q.accepted || []).some(kw => text.includes(kw.toLowerCase()));
 }
+function freshCaseTab() { return { query: '', lastRows: null, lastError: null }; }
+function activeTab() { return state.caseTabs[state.activeCaseTab] || (state.caseTabs[0] = freshCaseTab()); }
 function runCaseQuery(code) {
-  state.caseLastError = null;
-  state.caseLastRows = null;
+  const tab = activeTab();
+  tab.lastError = null;
+  tab.lastRows = null;
   try {
-    state.caseLastRows = runQuery(code, DB, SESSION_NOW);
+    tab.lastRows = runQuery(code, DB, SESSION_NOW);
   } catch (e) {
-    state.caseLastError = e.message || String(e);
+    tab.lastError = e.message || String(e);
   }
 }
 // ---------------- Daily Quest: one rotating quest per calendar day ----------------
@@ -2594,6 +2735,7 @@ function submitMission() {
   const code = document.getElementById('kql-editor').value;
   (state.queryHistory[state.currentId] = state.queryHistory[state.currentId] || []).unshift(code);
   const challenge = getChallengeById(state.currentId);
+  const wasTrainingCompleteBefore = isTrainingComplete();
   const progress = state.player.inProgress[state.currentId] || { attempts: 0 };
   progress.attempts++;
   state.player.inProgress[state.currentId] = progress;
@@ -2650,6 +2792,7 @@ function submitMission() {
     delete state.player.inProgress[state.currentId];
     if (!challenge.review) maybeQueueReview();
     if (challenge.review) state.player.reviewPool = state.player.reviewPool.filter(r => r.id !== state.currentId);
+    if (!wasTrainingCompleteBefore && isTrainingComplete()) state.showCertificateModal = true;
   } else {
     state.player.streak = 0;
     if (progress.attempts >= 2) markWeak(challenge.concepts || []);
@@ -3281,6 +3424,142 @@ function formatCell(v) {
   return v;
 }
 
+// ---------------- Certificate of Completion (real downloadable PDF via jsPDF) ----------------
+function generateCertificateId(name) {
+  let hash = 0;
+  const str = String(name) + Date.now();
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  return 'KQL-' + hash.toString(36).toUpperCase().slice(0, 8);
+}
+function drawSeal(doc, cx, cy, r) {
+  doc.setDrawColor(43, 232, 255);
+  doc.setLineWidth(2);
+  doc.circle(cx, cy, r, 'S');
+  doc.setDrawColor(255, 63, 164);
+  doc.setLineWidth(1);
+  doc.circle(cx, cy, r - 6, 'S');
+  doc.setDrawColor(57, 255, 136);
+  doc.setLineWidth(3);
+  doc.line(cx - r * 0.35, cy, cx - r * 0.08, cy + r * 0.3);
+  doc.line(cx - r * 0.08, cy + r * 0.3, cx + r * 0.4, cy - r * 0.35);
+}
+function downloadCertificate() {
+  if (!(window.jspdf && window.jspdf.jsPDF)) {
+    alert('The certificate library is still loading — please wait a moment and try again.');
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const p = state.player;
+  const name = (p.name || 'ANALYST').toUpperCase();
+  const rank = levelForXp(p.xp);
+  const { total } = trainingProgressCounts();
+  const dateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  const certId = generateCertificateId(p.name || 'analyst');
+
+  doc.setFillColor(6, 10, 16);
+  doc.rect(0, 0, W, H, 'F');
+  doc.setFillColor(11, 18, 28);
+  doc.rect(30, 30, W - 60, H - 60, 'F');
+
+  doc.setDrawColor(43, 232, 255);
+  doc.setLineWidth(3);
+  doc.rect(20, 20, W - 40, H - 40, 'S');
+  doc.setDrawColor(255, 63, 164);
+  doc.setLineWidth(1);
+  doc.rect(30, 30, W - 60, H - 60, 'S');
+
+  doc.setDrawColor(255, 176, 32);
+  doc.setLineWidth(2);
+  const cl = 26;
+  [[36, 36, 1, 1], [W - 36, 36, -1, 1], [36, H - 36, 1, -1], [W - 36, H - 36, -1, -1]].forEach(([x, y, dx, dy]) => {
+    doc.line(x, y, x + cl * dx, y);
+    doc.line(x, y, x, y + cl * dy);
+  });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(43, 232, 255);
+  doc.text('N I G H T W A V E   D Y N A M I C S   S O C', W / 2, 78, { align: 'center' });
+
+  doc.setFontSize(34);
+  doc.setTextColor(255, 255, 255);
+  doc.text('CERTIFICATE OF COMPLETION', W / 2, 112, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(13);
+  doc.setTextColor(150, 200, 210);
+  doc.text('KQL QUEST  —  SOC Analyst Training Program', W / 2, 132, { align: 'center' });
+
+  doc.setDrawColor(255, 176, 32);
+  doc.setLineWidth(1.2);
+  doc.line(W / 2 - 130, 148, W / 2 + 130, 148);
+
+  doc.setFontSize(12);
+  doc.setTextColor(190, 205, 215);
+  doc.text('This certifies that', W / 2, 176, { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(30);
+  doc.setTextColor(57, 255, 136);
+  doc.text(name, W / 2, 212, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11.5);
+  doc.setTextColor(190, 205, 215);
+  [
+    `has successfully completed all ${total} missions across every training level — from absolute`,
+    'fundamentals through the Operation Nightfall final exam — demonstrating practical proficiency',
+    'in Kusto Query Language (KQL) for security operations, threat hunting, and incident investigation.',
+  ].forEach((line, i) => doc.text(line, W / 2, 236 + i * 16, { align: 'center' }));
+
+  const statsY = 306;
+  doc.setFontSize(10.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 176, 32);
+  const stats = [
+    `RANK: ${rank.name.toUpperCase()}`,
+    `TOTAL XP: ${p.xp.toLocaleString()}`,
+    `BADGES: ${p.badges.length}/${BADGES.length}`,
+    `BEST STREAK: ${p.bestStreak}`,
+  ];
+  const segW = (W - 200) / stats.length;
+  stats.forEach((s, i) => doc.text(s, 100 + segW * i + segW / 2, statsY, { align: 'center' }));
+
+  drawSeal(doc, W - 120, H - 110, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(200, 215, 220);
+  doc.text('VERIFIED', W - 120, H - 110 + 56, { align: 'center' });
+
+  doc.setDrawColor(120, 140, 150);
+  doc.setLineWidth(0.8);
+  doc.line(90, H - 96, 260, H - 96);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(160, 175, 185);
+  doc.text('KQL Quest Training System', 175, H - 84, { align: 'center' });
+  doc.text(`Issued: ${dateStr}`, 175, H - 66, { align: 'center' });
+  doc.text(`Certificate ID: ${certId}`, 175, H - 52, { align: 'center' });
+
+  const filename = `KQL_Quest_Certificate_${(p.name || 'Analyst').replace(/[^A-Za-z0-9]+/g, '_')}.pdf`;
+  doc.save(filename);
+}
+function renderCertificateModal() {
+  const p = state.player;
+  return `<div class="modal-overlay" data-action="dismiss-certificate">
+    <div class="modal certificate-modal">
+      <div class="certificate-modal-icon">🎓</div>
+      <div class="certificate-modal-title">TRAINING COMPLETE</div>
+      <div class="certificate-modal-body">Every mission across every level, including Operation Nightfall — done. ${esc(p.name || 'Analyst')} is ready to work live incidents.</div>
+      <button class="btn btn-primary btn-big" data-action="download-certificate">🎓 Download Certificate (PDF)</button>
+      <button class="btn btn-ghost" style="width:100%;margin-top:8px;" data-action="dismiss-certificate">Continue</button>
+    </div>
+  </div>`;
+}
+
 function renderBadgeModal(badges) {
   const b = badges[0];
   return `<div class="modal-overlay" data-action="dismiss-badge">
@@ -3351,6 +3630,17 @@ function renderProfile() {
       <div class="skill-col-head">Recent Activity</div>
       ${p.activityLog.slice(0, 10).map(a => `<div class="activity-row"><span>${new Date(a.ts).toLocaleString()}</span><span>${esc(a.label)}</span><span class="activity-xp">+${a.xp} XP</span></div>`).join('') || '<div class="skill-empty">No activity yet.</div>'}
     </div>
+    ${(() => {
+      const tp = trainingProgressCounts();
+      const complete = tp.done === tp.total;
+      return `<div class="certificate-section ${complete ? 'complete' : ''}">
+        <div class="certificate-section-head">🎓 Training Certificate</div>
+        ${complete
+          ? `<div class="certificate-section-body">All ${tp.total} missions complete, including Operation Nightfall. You're certified.</div>
+             <button class="btn btn-primary" data-action="download-certificate">🎓 Download Certificate (PDF)</button>`
+          : `<div class="certificate-section-body">Complete every mission (${tp.done}/${tp.total} so far), including Operation Nightfall, to unlock your downloadable certificate.</div>`}
+      </div>`;
+    })()}
     <div class="danger-zone">
       <div class="danger-zone-head">Danger Zone</div>
       <div class="danger-zone-body">Wipe your XP, badges, levels, and mission progress, and restart training from Mission 1.</div>
@@ -3644,16 +3934,26 @@ function renderCaseFile() {
   if (!c) return renderCaseFiles();
   const rec = state.player.caseFiles[c.id] || { attempts: 0, scoredKeys: [], xpEarned: 0, solved: false, lastAnswers: {} };
   const grade = state.caseGrade;
+  const tab = activeTab();
 
   let resultsHtml = '';
-  if (state.caseLastError) {
-    resultsHtml = `<div class="feedback fail"><div class="feedback-head">⚠️ QUERY ERROR</div><pre class="err-msg">${esc(state.caseLastError)}</pre></div>`;
-  } else if (state.caseLastRows) {
-    resultsHtml = renderResultsTable(state.caseLastRows);
+  if (tab.lastError) {
+    resultsHtml = `<div class="feedback fail"><div class="feedback-head">⚠️ QUERY ERROR</div><pre class="err-msg">${esc(tab.lastError)}</pre></div>`;
+  } else if (tab.lastRows) {
+    resultsHtml = renderResultsTable(tab.lastRows);
   }
 
   const datasets = c.datasets || [];
   const colsHtml = datasets.map(d => `<div class="ds-chip">${esc(d)}<div class="ds-cols">${(TABLE_COLUMNS[d] || []).join(', ')}</div></div>`).join('');
+
+  const tabBarHtml = `<div class="case-tab-bar">
+    ${state.caseTabs.map((t, i) => `
+      <div class="case-tab ${i === state.activeCaseTab ? 'active' : ''}" data-action="switch-case-tab" data-index="${i}">
+        <span class="case-tab-label">Query ${i + 1}</span>
+        ${state.caseTabs.length > 1 ? `<span class="case-tab-close" data-action="close-case-tab" data-index="${i}">✕</span>` : ''}
+      </div>`).join('')}
+    <button class="case-tab-add" data-action="add-case-tab" title="Open a new query tab">+ New Tab</button>
+  </div>`;
 
   const qKeys = ['who', 'what', 'when', 'where', 'why', 'how'];
   const qIcon = { who: '👤', what: '❓', when: '🕐', where: '📍', why: '🎯', how: '⚙️' };
@@ -3688,6 +3988,7 @@ function renderCaseFile() {
       <div class="ds-chips">${colsHtml}</div>
     </div>
     <div class="mission-workbench">
+      ${tabBarHtml}
       <div class="editor-toolbar">
         <button class="btn btn-primary" data-action="run-case-query">▶ RUN QUERY</button>
         <button class="btn btn-ghost" data-action="format-case-query">🧹 Format</button>
@@ -3696,7 +3997,7 @@ function renderCaseFile() {
       <div class="editor-wrap">
         <div class="editor-gutter" id="case-editor-gutter">1</div>
         <textarea id="case-editor" class="editor-input" spellcheck="false" autocapitalize="off" autocomplete="off"
-          placeholder="Investigate freely — try any table, any query...">${esc(state._caseDraftQuery || '')}</textarea>
+          placeholder="Investigate freely — try any table, any query...">${esc(tab.query || '')}</textarea>
       </div>
       <div class="results-area">${resultsHtml}</div>
       <div class="case-report">
@@ -3867,7 +4168,7 @@ function setupEditor() {
   }, (v) => { state._draftQuery = v; }, 'run-query');
 }
 function setupCaseEditor() {
-  setupKqlEditor('case-editor', 'case-editor-gutter', () => Object.keys(TABLE_COLUMNS), (v) => { state._caseDraftQuery = v; }, 'run-case-query');
+  setupKqlEditor('case-editor', 'case-editor-gutter', () => Object.keys(TABLE_COLUMNS), (v) => { activeTab().query = v; }, 'run-case-query');
 }
 function setupDailyEditor() {
   setupKqlEditor('daily-editor', 'daily-editor-gutter', () => {
@@ -3992,10 +4293,32 @@ function doAction(action, el) {
     case 'toggle-operator-panel': state.showOperatorPanel = !state.showOperatorPanel; render(); setTimeout(setupEditor, 0); break;
     case 'open-casefile': {
       state.currentCaseId = el.dataset.id;
-      state.caseLastRows = null; state.caseLastError = null; state.caseGrade = null; state.caseShowAnswers = false;
-      state._caseDraftQuery = '';
+      state.caseTabs = [freshCaseTab()];
+      state.activeCaseTab = 0;
+      state.caseGrade = null; state.caseShowAnswers = false;
       state._newBadges = null;
       state.screen = 'casefile';
+      render();
+      break;
+    }
+    case 'add-case-tab': {
+      state.caseTabs.push(freshCaseTab());
+      state.activeCaseTab = state.caseTabs.length - 1;
+      render();
+      break;
+    }
+    case 'switch-case-tab': {
+      state.activeCaseTab = +el.dataset.index;
+      render();
+      break;
+    }
+    case 'close-case-tab': {
+      const idx = +el.dataset.index;
+      if (state.caseTabs.length > 1) {
+        state.caseTabs.splice(idx, 1);
+        if (state.activeCaseTab >= state.caseTabs.length) state.activeCaseTab = state.caseTabs.length - 1;
+        else if (state.activeCaseTab > idx) state.activeCaseTab--;
+      }
       render();
       break;
     }
@@ -4010,7 +4333,7 @@ function doAction(action, el) {
       if (ta) { ta.value = formatQuery(ta.value); ta.dispatchEvent(new Event('input')); }
       break;
     }
-    case 'reset-case-query': { state._caseDraftQuery = ''; render(); break; }
+    case 'reset-case-query': { activeTab().query = ''; render(); break; }
     case 'submit-case-answers': submitCaseAnswers(); render(); break;
     case 'toggle-case-answers': state.caseShowAnswers = !state.caseShowAnswers; render(); break;
     case 'toggle-theme': {
@@ -4073,6 +4396,8 @@ function doAction(action, el) {
       else { state.screen = 'dashboard'; state.dashboardTab = 'training'; render(); }
       break;
     }
+    case 'download-certificate': downloadCertificate(); break;
+    case 'dismiss-certificate': state.showCertificateModal = false; render(); break;
     case 'dismiss-badge': {
       state._newBadges = state._newBadges ? state._newBadges.slice(1) : null;
       if (state._newBadges && state._newBadges.length === 0) state._newBadges = null;
@@ -4087,6 +4412,7 @@ function render() {
   if (typeof hideSuggestions === 'function') hideSuggestions();
   let inner = '';
   const resetModal = state.showResetConfirm ? renderResetConfirmModal() : '';
+  const certModal = state.showCertificateModal ? renderCertificateModal() : '';
   if (state.screen === 'onboarding') {
     inner = renderOnboarding();
     $app().innerHTML = inner + resetModal;
@@ -4103,7 +4429,7 @@ function render() {
   else if (state.screen === 'daily-quest') inner = renderDailyQuestScreen();
   else if (state.screen === 'operators') inner = renderOperatorGuide();
   else if (state.screen === 'level-readthrough') inner = renderLevelReadthrough();
-  $app().innerHTML = hud + `<div class="screen-body">${inner}</div>` + resetModal;
+  $app().innerHTML = hud + `<div class="screen-body">${inner}</div>` + resetModal + certModal;
   wireEvents();
   if (state.screen === 'mission') setupEditor();
   if (state.screen === 'casefile') setupCaseEditor();
@@ -4127,7 +4453,7 @@ async function main() {
 main();
 
 // Expose a small debug surface (useful for QA and for curious analysts poking the console).
-window.KQLQUEST_DEBUG = { state, ALL_STEPS, ALL_MODULES, CASE_FILES, REVIEW_TEMPLATES, DAILY_QUEST_POOL, getDailyQuestForDate, DB, submitMission, goToMission, startModule, resetProgress, submitCaseAnswers, gradeCaseQuestion, runCaseQuery, submitDailyQuest, render, runQuery, gradeResult, useHint, revealSolution };
+window.KQLQUEST_DEBUG = { state, ALL_STEPS, ALL_MODULES, CASE_FILES, REVIEW_TEMPLATES, DAILY_QUEST_POOL, getDailyQuestForDate, DB, submitMission, goToMission, startModule, resetProgress, submitCaseAnswers, gradeCaseQuestion, runCaseQuery, submitDailyQuest, activeTab, isTrainingComplete, trainingProgressCounts, downloadCertificate, render, runQuery, gradeResult, useHint, revealSolution };
 
 </script>
 </body>
