@@ -2489,8 +2489,10 @@ function trainingProgressCounts() {
 }
 
 function nextMissionId() {
-  // pending synthetic review missions take priority
-  if (state.player.reviewPool.length) return state.player.reviewPool[0].id;
+  // Pending (not-yet-solved) synthetic review missions take priority. Completed reviews are
+  // intentionally left in reviewPool briefly (see submitMission), so skip past those here.
+  const pendingReview = state.player.reviewPool.find(r => !isCompleted(r.id));
+  if (pendingReview) return pendingReview.id;
   for (const c of allMissionsInOrder()) {
     if (!isCompleted(c.id)) return c.id;
   }
@@ -2564,6 +2566,9 @@ function markWeak(concepts) {
   });
 }
 function maybeQueueReview() {
+  // Prune any already-completed reviews left lingering from a prior success render (see
+  // submitMission's note) before deciding whether to queue a new one.
+  state.player.reviewPool = state.player.reviewPool.filter(r => !isCompleted(r.id));
   if (state.player.weakConcepts.length === 0) return;
   if (state.player.completedCount === 0 || state.player.completedCount % 5 !== 0) return;
   const idx = state.player.weakConcepts.findIndex(c => REVIEW_TEMPLATES[c] && REVIEW_TEMPLATES[c].length);
@@ -2791,7 +2796,11 @@ function submitMission() {
     state.player.completed[state.currentId] = rec;
     delete state.player.inProgress[state.currentId];
     if (!challenge.review) maybeQueueReview();
-    if (challenge.review) state.player.reviewPool = state.player.reviewPool.filter(r => r.id !== state.currentId);
+    // Note: a completed review mission is intentionally NOT removed from reviewPool here.
+    // It needs to stay resolvable via getChallengeById() so this exact render (right after
+    // success) can still show its "Mission Complete" screen. nextMissionId()/the dashboard
+    // banner already skip over completed reviews, and maybeQueueReview() prunes stale
+    // completed entries the next time a new review is queued.
     if (!wasTrainingCompleteBefore && isTrainingComplete()) state.showCertificateModal = true;
   } else {
     state.player.streak = 0;
@@ -3037,11 +3046,11 @@ function renderTrainingTab() {
   ALL_MODULES.forEach(m => { (modulesByLevel[m.level] = modulesByLevel[m.level] || []).push(m); });
 
   let reviewCard = '';
-  if (p.reviewPool.length) {
-    const r = p.reviewPool[0];
+  const pendingReview = p.reviewPool.find(r => !isCompleted(r.id));
+  if (pendingReview) {
     reviewCard = `
-    <div class="review-banner" data-action="start-mission" data-id="${r.id}">
-      🧠 <b>KNOWLEDGE CHECK QUEUED</b> — before you continue, let's revisit <b>${esc(r.concepts[0])}</b>. <span class="link">Start Review →</span>
+    <div class="review-banner" data-action="start-mission" data-id="${pendingReview.id}">
+      🧠 <b>KNOWLEDGE CHECK QUEUED</b> — before you continue, let's revisit <b>${esc(pendingReview.concepts[0])}</b>. <span class="link">Start Review →</span>
     </div>`;
   }
 
