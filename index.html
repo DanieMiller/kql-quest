@@ -19,6 +19,14 @@
   --body: 'Inter', system-ui, sans-serif;
   --radius: 10px;
 }
+html[data-theme="light"]{
+  --bg:#eef3f6; --bg2:#e4ecf1;
+  --panel:#ffffff; --panel2:#f3f7fa; --panel3:#e9eff3;
+  --border:#c9d6df; --border-lit:#a9bcc9;
+  --cyan:#0091b3; --cyan-dim:#04728d;
+  --magenta:#c81e82; --green:#0d8a4a; --amber:#a3660a; --red:#c92f2f; --purple:#7a3fc9;
+  --text:#101820; --muted:#4c5b66; --muted2:#6b7a85;
+}
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--body);}
 body{
@@ -223,6 +231,12 @@ a, .link{color:var(--cyan);}
 .op-guide-name{font-family:var(--mono);font-weight:700;color:var(--text);font-size:13px;padding-top:2px;}
 .op-guide-ex{display:block;background:var(--bg2);border:1px solid var(--border-lit);border-radius:6px;padding:6px 10px;color:var(--cyan);font-size:12px;margin-bottom:6px;width:fit-content;}
 .op-guide-why{font-size:13px;color:var(--muted);line-height:1.6;}
+.op-panel-toggle{margin:4px 0 8px;}
+.inline-op-panel{background:var(--panel3);border:1px solid var(--border-lit);border-radius:8px;padding:10px 12px;margin-bottom:14px;max-height:340px;overflow:auto;}
+.inline-op-panel .op-guide-section{margin:10px 0;}
+.level-readthrough-screen{max-width:820px;margin:0 auto;}
+.level-readthrough-header{text-align:center;margin-bottom:18px;}
+.level-readthrough-header .mission-tag{display:inline-block;margin-bottom:10px;}
 .mission-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;}
 .mission-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;transition:all .15s;position:relative;}
 .mission-card:hover{border-color:var(--cyan);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.35);}
@@ -523,6 +537,19 @@ function makeHelpers(nowInstant) {
       if (a == null) return false;
       try { return new RegExp(pattern, 'i').test(String(a)); } catch (e) { return false; }
     },
+    extract: (pattern, groupIdx, text) => {
+      if (text == null) return null;
+      try {
+        const re = new RegExp(pattern);
+        const m = re.exec(String(text));
+        if (!m) return null;
+        return m[groupIdx] !== undefined ? m[groupIdx] : null;
+      } catch (e) { return null; }
+    },
+    replace_string: (text, lookup, rewrite) => (text == null ? text : String(text).split(String(lookup)).join(String(rewrite))),
+    strcat_delim: (delim, ...parts) => parts.map(p => (p == null ? '' : String(p))).join(String(delim)),
+    array_length: (arr) => (Array.isArray(arr) ? arr.length : 0),
+    todynamic: (x) => { try { return typeof x === 'string' ? JSON.parse(x) : x; } catch (e) { return x; } },
     startswith: (a, b) => a != null && String(a).toLowerCase().startsWith(String(b).toLowerCase()),
     endswith: (a, b) => a != null && String(a).toLowerCase().endsWith(String(b).toLowerCase()),
     isempty: (a) => a === null || a === undefined || a === '',
@@ -845,6 +872,16 @@ function applyStage(stage, rows, db, letVars, helpers, nowInstant) {
     });
     const aggSpecs = splitTopLevel(aggPart, ',').map(a => {
       const mm = /^([A-Za-z_]\w*)\s*=\s*(.+)$/s.exec(a.trim());
+      const bodyText = (mm ? mm[2] : a.trim()).trim();
+      // arg_max/arg_min return an entire ROW (or one column from it), not a scalar —
+      // handled specially below rather than through computeAgg().
+      const argMatch = /^(arg_max|arg_min)\s*\(\s*(.+?)\s*,\s*(.+?)\s*\)$/is.exec(bodyText);
+      if (argMatch) {
+        return {
+          isArg: true, mode: argMatch[1].toLowerCase() === 'arg_max' ? 'max' : 'min',
+          valueExpr: argMatch[2], resultExpr: argMatch[3].trim(), explicitName: mm ? mm[1] : null,
+        };
+      }
       if (mm) return { name: mm[1], expr: mm[2] };
       // Match real Kusto's auto-naming convention: fnName_argument (e.g. count() -> "count_",
       // avg(Foo) -> "avg_Foo"), so `summarize count() by X | sort by count_` works as expected.
@@ -872,7 +909,25 @@ function applyStage(stage, rows, db, letVars, helpers, nowInstant) {
     for (const { keyVals, items } of groups.values()) {
       const o = {};
       byBindings.forEach((b, i) => o[b.name] = keyVals[i]);
-      aggSpecs.forEach(spec => { o[spec.name] = computeAgg(spec.expr, items, helpers); });
+      aggSpecs.forEach(spec => {
+        if (spec.isArg) {
+          let bestRow = null, bestVal;
+          items.forEach(r => {
+            const v = evalExpr(spec.valueExpr, r, helpers);
+            if (bestRow === null || (spec.mode === 'max' ? compareVals(v, bestVal) > 0 : compareVals(v, bestVal) < 0)) {
+              bestVal = v; bestRow = r;
+            }
+          });
+          if (spec.resultExpr === '*') {
+            if (bestRow) Object.keys(bestRow).forEach(k => { if (k !== '__rid') o[k] = bestRow[k]; });
+          } else {
+            const outName = spec.explicitName || (spec.mode + '_' + spec.resultExpr.replace(/[^A-Za-z0-9]+/g, '_'));
+            o[outName] = bestRow ? evalExpr(spec.resultExpr, bestRow, helpers) : null;
+          }
+        } else {
+          o[spec.name] = computeAgg(spec.expr, items, helpers);
+        }
+      });
       out.push(o);
     }
     return out;
@@ -968,6 +1023,20 @@ function computeAgg(expr, items, helpers) {
   }
   if ((m = /^make_list\s*\((.*)\)$/is.exec(expr.trim()))) {
     return items.map(r => evalExpr(m[1], r, helpers));
+  }
+  if ((m = /^make_set\s*\((.*)\)$/is.exec(expr.trim()))) {
+    const vals = items.map(r => evalExpr(m[1], r, helpers));
+    const seen = new Set();
+    const out = [];
+    vals.forEach(v => { const key = serializeVal(v); if (!seen.has(key)) { seen.add(key); out.push(v); } });
+    return out;
+  }
+  if ((m = /^percentile\s*\((.*),\s*(\d+(?:\.\d+)?)\s*\)$/is.exec(expr.trim()))) {
+    const vals = items.map(r => Number(evalExpr(m[1], r, helpers))).filter(v => !isNaN(v)).sort((a, b) => a - b);
+    if (!vals.length) return null;
+    const p = parseFloat(m[2]);
+    const idx = Math.min(vals.length - 1, Math.max(0, Math.ceil((p / 100) * vals.length) - 1));
+    return vals[idx];
   }
   // fallback: evaluate on first row (rare)
   return items.length ? evalExpr(expr, items[0], helpers) : null;
@@ -1593,6 +1662,23 @@ const MODULES = [
     ],
   },
   {
+    id: 'M06B', level: 4, title: 'Freshest Record', codename: 'ARG_MAX', dataset: 'SigninLogs',
+    intro: `A user's account can have dozens of sign-in events. For a lot of investigations you don't want all of them — you want the ONE most recent event, with every column intact. That's exactly what \`arg_max\` is for.`,
+    steps: [
+      {
+        objective: 'For each user, find their single most recent sign-in — keep every column from that one specific row using arg_max.',
+        thinkThrough: ['A normal aggregate like max() would only give you the timestamp value itself. How do you get the WHOLE row that has the max value instead?'],
+        concepts: ['summarize', 'arg_max'], xp: 200,
+        solutionQuery: `SigninLogs | summarize arg_max(TimeGenerated, *) by UserPrincipalName`,
+        hints: ['`arg_max(ValueColumn, *)` returns every column from the row where ValueColumn is highest, per group.', 'The `*` means "give me the whole row," not just one field.', 'Try: `SigninLogs | summarize arg_max(TimeGenerated, *) by UserPrincipalName`'],
+        explainNote: '`arg_max`/`arg_min` are some of the most-used aggregates in real Sentinel queries — "give me the latest event per entity" comes up constantly.',
+      },
+      { objective: 'Trim the result down to just UserPrincipalName, TimeGenerated, ResultType, and Location.', concepts: ['project'], xp: 110, solutionQuery: `SigninLogs | summarize arg_max(TimeGenerated, *) by UserPrincipalName | project UserPrincipalName, TimeGenerated, ResultType, Location`, hints: ['Try adding: `| project UserPrincipalName, TimeGenerated, ResultType, Location`'] },
+      { objective: 'Now keep only the users whose MOST RECENT sign-in was NOT from the US — a stale or unusual last-known location is worth flagging.', concepts: ['where'], xp: 150, solutionQuery: `SigninLogs | summarize arg_max(TimeGenerated, *) by UserPrincipalName | project UserPrincipalName, TimeGenerated, ResultType, Location | where Location != "US"`, hints: ['Try adding: `| where Location != "US"`'] },
+      { objective: 'Sort so the most recently active of these flagged users is at the top.', concepts: ['sort'], xp: 100, solutionQuery: `SigninLogs | summarize arg_max(TimeGenerated, *) by UserPrincipalName | project UserPrincipalName, TimeGenerated, ResultType, Location | where Location != "US" | sort by TimeGenerated desc`, hints: ['Try adding: `| sort by TimeGenerated desc`'] },
+    ],
+  },
+  {
     id: 'M08', level: 6, title: 'Staying Power', codename: 'PERSISTENCE MECHANISM', dataset: 'DeviceProcessEvents',
     intro: `An attacker who gets in once wants to survive a reboot. One of the oldest tricks: register a scheduled task that keeps re-launching their payload.`,
     steps: [
@@ -1627,6 +1713,23 @@ const MODULES = [
       { objective: 'Start with the failed sign-ins, as always.', concepts: ['where'], xp: 90, solutionQuery: `SigninLogs | where ResultType != 0`, hints: ['`SigninLogs | where ResultType != 0`'] },
       { objective: 'Derive an AccountName column holding just the part of the UPN before the "@".', concepts: ['extend', 'split', 'tostring'], xp: 180, solutionQuery: `SigninLogs | where ResultType != 0 | extend AccountName = tostring(split(UserPrincipalName, "@")[0])`, hints: ['`split(text, separator)` breaks a string into an array of pieces.', 'Index [0] gets the first piece; wrap it in `tostring()`.', 'Try adding: `| extend AccountName = tostring(split(UserPrincipalName, "@")[0])`'] },
       { objective: 'Now join to DeviceProcessEvents on that AccountName to see endpoint activity tied to these users.', concepts: ['join', 'correlation'], xp: 220, solutionQuery: `SigninLogs | where ResultType != 0 | extend AccountName = tostring(split(UserPrincipalName, "@")[0]) | join kind=inner (DeviceProcessEvents) on AccountName`, hints: ['`join kind=inner (OtherTable) on KeyColumn` matches rows where the key is equal on both sides.', 'Try adding: `| join kind=inner (DeviceProcessEvents) on AccountName`'], explainNote: 'Joins are how real investigations connect identity events to endpoint events — almost every serious hunt eventually needs one.' },
+    ],
+  },
+  {
+    id: 'M11B', level: 7, title: 'Pattern Extraction', codename: 'EXTRACT & REBUILD', dataset: 'DeviceFileEvents',
+    intro: `Sometimes the piece of data you need isn't its own column — it's buried inside a longer string. Regex extraction and text-rebuilding functions let you carve out exactly what you need.`,
+    steps: [
+      {
+        objective: 'Pull just the file extension out of every FileName using extract() with a simple pattern.',
+        thinkThrough: ['A regex capture group is how you pull out just PART of a matched string.'],
+        concepts: ['extract'], xp: 180,
+        solutionQuery: `DeviceFileEvents | extend Extension = extract("[.]([^.]+)$", 1, FileName)`,
+        hints: ['`extract(pattern, groupNumber, text)` runs a regex against text and returns one captured group.', 'The pattern `[.]([^.]+)$` means: a dot, then capture everything after it to the end of the string.', 'Try: `DeviceFileEvents | extend Extension = extract("[.]([^.]+)$", 1, FileName)`'],
+        explainNote: '`extract` is your escape hatch whenever a value is embedded inside a larger string with no dedicated column of its own.',
+      },
+      { objective: 'Keep only the files with a "ps1" extension.', concepts: ['where'], xp: 140, solutionQuery: `DeviceFileEvents | extend Extension = extract("[.]([^.]+)$", 1, FileName) | where Extension == "ps1"`, hints: ['Try adding: `| where Extension == "ps1"`'] },
+      { objective: 'Build a combined "Label" column joining DeviceName and FileName with a " | " separator, using strcat_delim.', concepts: ['extend', 'strcat_delim'], xp: 150, solutionQuery: `DeviceFileEvents | extend Extension = extract("[.]([^.]+)$", 1, FileName) | where Extension == "ps1" | extend Label = strcat_delim(" | ", DeviceName, FileName)`, hints: ['`strcat_delim(separator, val1, val2, ...)` joins values together with a separator between each one.', 'Try adding: `| extend Label = strcat_delim(" | ", DeviceName, FileName)`'] },
+      { objective: 'For a sanitized report list, build a SafeName column that replaces the ".ps1" extension with ".txt" using replace_string.', concepts: ['extend', 'replace_string'], xp: 150, solutionQuery: `DeviceFileEvents | extend Extension = extract("[.]([^.]+)$", 1, FileName) | where Extension == "ps1" | extend Label = strcat_delim(" | ", DeviceName, FileName) | extend SafeName = replace_string(FileName, ".ps1", ".txt")`, hints: ['`replace_string(text, find, replaceWith)` does a plain substring swap — no regex needed.', 'Try adding: `| extend SafeName = replace_string(FileName, ".ps1", ".txt")`'], explainNote: '`replace_string` does literal substring replacement (not regex) — for pattern-based replacement, real Kusto has a separate `replace_regex` function.' },
     ],
   },
   {
@@ -1683,6 +1786,23 @@ const MODULES = [
     ],
   },
   {
+    id: 'M14B', level: 9, title: 'Threat Ledger', codename: 'MAKE_SET', dataset: 'DeviceNetworkEvents',
+    intro: `Instead of scrolling through hundreds of individual connection events, you want a clean ledger: for every device, what's the unique SET of domains it has ever talked to?`,
+    steps: [
+      {
+        objective: 'For each device, build the unique set of remote domains it contacted using make_set.',
+        thinkThrough: ['make_list keeps duplicates; you want each domain to appear only once per device. Which aggregate does that?'],
+        concepts: ['summarize', 'make_set'], xp: 190,
+        solutionQuery: `DeviceNetworkEvents | summarize Domains=make_set(RemoteUrl) by DeviceName`,
+        hints: ['`make_set(Column)` collects unique values into an array per group — like `distinct`, but as one aggregated list instead of separate rows.', 'Try: `DeviceNetworkEvents | summarize Domains=make_set(RemoteUrl) by DeviceName`'],
+        explainNote: '`make_set` is the aggregate version of `distinct` — perfect for building a compact per-entity summary instead of a long flat list of rows.',
+      },
+      { objective: 'Add a column showing how many unique domains are in each set, using array_length.', concepts: ['extend', 'array_length'], xp: 150, solutionQuery: `DeviceNetworkEvents | summarize Domains=make_set(RemoteUrl) by DeviceName | extend DomainCount=array_length(Domains)`, hints: ['`array_length(arr)` counts how many elements are in a dynamic array column.', 'Try adding: `| extend DomainCount=array_length(Domains)`'] },
+      { objective: 'Keep only the devices that have talked to more than 3 unique domains — a wide spread is worth a second look.', concepts: ['where after summarize'], xp: 160, solutionQuery: `DeviceNetworkEvents | summarize Domains=make_set(RemoteUrl) by DeviceName | extend DomainCount=array_length(Domains) | where DomainCount > 3`, hints: ['Try adding: `| where DomainCount > 3`'] },
+      { objective: 'Sort so the widest-reaching device is at the top.', concepts: ['sort'], xp: 100, solutionQuery: `DeviceNetworkEvents | summarize Domains=make_set(RemoteUrl) by DeviceName | extend DomainCount=array_length(Domains) | where DomainCount > 3 | sort by DomainCount desc`, hints: ['Try adding: `| sort by DomainCount desc`'] },
+    ],
+  },
+  {
     id: 'M15', level: 10, title: 'The Origin Story', codename: 'ROOT CAUSE', dataset: 'DeviceProcessEvents',
     intro: `You know PowerShell ran maliciously on FIN-WKS-014. Now find out what launched it in the first place — the root cause of the entire incident.`,
     steps: [
@@ -1697,6 +1817,23 @@ const MODULES = [
       { objective: 'Filter to the one compromised device: FIN-WKS-014.', concepts: ['where'], xp: 100, solutionQuery: `DeviceNetworkEvents | where DeviceName == "FIN-WKS-014"`, hints: ['You\'ve done this before.'] },
       { objective: 'Group what remains by destination and count.', concepts: ['summarize'], xp: 170, solutionQuery: `DeviceNetworkEvents | where DeviceName == "FIN-WKS-014" | summarize Connections=count() by RemoteUrl`, hints: ['Think back to how you detected beaconing earlier.'] },
       { objective: 'Sort so the answer is obvious at a glance.', concepts: ['sort', 'synthesis'], xp: 120, solutionQuery: `DeviceNetworkEvents | where DeviceName == "FIN-WKS-014" | summarize Connections=count() by RemoteUrl | sort by Connections desc`, hints: ['Descending, so the busiest destination is first.'] },
+    ],
+  },
+  {
+    id: 'M16B', level: 10, title: 'Baseline & Outliers', codename: 'PERCENTILE', dataset: 'DeviceNetworkEvents',
+    intro: `Knowing "the count is 12" means nothing on its own. Is 12 normal, or wildly unusual? To answer that, you need to know what typical looks like — that's what percentile analysis gives you.`,
+    steps: [
+      { objective: 'Count connections per device, same as you\'ve done before.', concepts: ['summarize'], xp: 130, solutionQuery: `DeviceNetworkEvents | summarize Connections=count() by DeviceName`, hints: ['`summarize Connections=count() by DeviceName`'] },
+      {
+        objective: 'Now collapse that whole distribution down to a single number: the median (50th percentile) connection count across all devices.',
+        thinkThrough: ['A plain `summarize` with no `by` clause collapses everything into one overall result.'],
+        concepts: ['summarize', 'percentile'], xp: 190,
+        solutionQuery: `DeviceNetworkEvents | summarize Connections=count() by DeviceName | summarize Median=percentile(Connections, 50)`,
+        hints: ['`percentile(Column, N)` returns the value below which N% of the data falls. 50 is the median.', 'Summarizing again with no `by` clause collapses every row into one overall answer.', 'Try adding: `| summarize Median=percentile(Connections, 50)`'],
+        explainNote: '`percentile` is how real SOCs establish a baseline — "normal" isn\'t a guess, it\'s a number derived from the actual data.',
+      },
+      { objective: 'Instead of the median, compute the 90th percentile — the threshold only the top 10% of devices cross.', concepts: ['percentile'], xp: 150, solutionQuery: `DeviceNetworkEvents | summarize Connections=count() by DeviceName | summarize P90=percentile(Connections, 90)`, hints: ['Same pattern, different number — edit your existing line and change 50 to 90, and rename the column to P90.', 'Try: `DeviceNetworkEvents | summarize Connections=count() by DeviceName | summarize P90=percentile(Connections, 90)`'] },
+      { objective: 'In one summarize, compute both the median AND the single highest connection count, side by side.', concepts: ['summarize', 'percentile'], xp: 160, solutionQuery: `DeviceNetworkEvents | summarize Connections=count() by DeviceName | summarize Median=percentile(Connections, 50), Highest=max(Connections)`, hints: ['You can compute multiple aggregates in one summarize, separated by commas.', 'Try: `DeviceNetworkEvents | summarize Connections=count() by DeviceName | summarize Median=percentile(Connections, 50), Highest=max(Connections)`'], explainNote: 'Comparing the median to the max in one glance instantly tells you how much of an outlier your busiest device really is.' },
     ],
   },
 ];
@@ -2131,7 +2268,7 @@ function freshPlayer() {
     createdAt: Date.now(),
     lastActive: Date.now(),
     activityLog: [],       // { ts, type, label, xp }
-    muted: false,
+    theme: 'dark',
   };
 }
 
@@ -2571,7 +2708,7 @@ function renderHud() {
       <button class="icon-btn" data-action="goto-skilltree" title="Skill Tree">🌳</button>
       <button class="icon-btn" data-action="goto-badges" title="Badges">🏅</button>
       <button class="icon-btn" data-action="goto-profile" title="Profile">🧑‍💻</button>
-      <button class="icon-btn" data-action="toggle-mute" title="Mute">${p.muted ? '🔇' : '🔊'}</button>
+      <button class="icon-btn" data-action="toggle-theme" title="Light/Dark Mode">${state.player.theme === 'light' ? '🌙' : '☀️'}</button>
       <button class="icon-btn danger" data-action="open-reset-confirm" title="Reset Progress">🗑️</button>
     </div>
   </div>`;
@@ -3261,6 +3398,9 @@ const CONCEPT_TO_OPS = {
   'join (self)': ['self-join'], 'datetime math': ['datetime subtraction'], abs: ['datetime subtraction'],
   in: ['in (a, b, c)'], union: ['union Table1, Table2'],
   'process ancestry': ['extend NewCol = expr', 'where condition'],
+  arg_max: ['arg_max / arg_min(val, *)'], make_set: ['make_set(Col)'], array_length: ['array_length(arr)'],
+  percentile: ['percentile(Col, N)'], extract: ['extract(pattern, group, text)'],
+  strcat_delim: ['strcat_delim(sep, a, b, ...)'], replace_string: ['replace_string(text, find, new)'],
 };
 function operatorNamesForLevel(level) {
   const names = new Set();
@@ -3317,6 +3457,10 @@ const OPERATOR_GUIDE = [
       { name: 'tostring / toint / toreal / todatetime', ex: 'tostring(split(x,"@")[0])', why: 'Type-conversion functions. KQL is picky about types under the hood, so you\'ll reach for these constantly after splitting or parsing.' },
       { name: 'parse_json(text)', ex: 'parse_json(RawEventData)', why: 'Parses a JSON-formatted string column into a real object so you can drill into its fields.' },
       { name: 'bin(value, size)', ex: 'bin(TimeGenerated, 30m)', why: 'Rounds a value down into fixed-size buckets — the key to time-windowed analysis, like "how many failed logins per 30-minute window."' },
+      { name: 'extract(pattern, group, text)', ex: 'extract("[.]([^.]+)$", 1, FileName)', why: 'Runs a regex against a string and returns one captured group — your escape hatch whenever a value is buried inside a larger string with no column of its own.' },
+      { name: 'replace_string(text, find, new)', ex: 'replace_string(FileName, ".ps1", ".txt")', why: 'Plain substring replacement (not regex) — quick text cleanup or sanitization.' },
+      { name: 'strcat_delim(sep, a, b, ...)', ex: 'strcat_delim(" | ", DeviceName, FileName)', why: 'Joins several values together with a separator between each one — handy for building readable labels.' },
+      { name: 'array_length(arr)', ex: 'array_length(Domains)', why: 'Counts how many elements are in a dynamic array column — usually paired with `make_set`/`make_list`.' },
     ],
   },
   {
@@ -3327,6 +3471,10 @@ const OPERATOR_GUIDE = [
       { name: 'countif(condition)', ex: 'countif(ResultType != 0)', why: 'Counts only the rows in the group matching a condition — like `count()` with a built-in filter, letting you compute several different counts in one summarize.' },
       { name: 'dcount(Col)', ex: 'dcount(IPAddress)', why: "Counts DISTINCT values, not rows. A single user failing from 1 IP is a typo; the same user failing from 12 distinct IPs is a real signal — that's exactly what dcount surfaces." },
       { name: 'avg / min / max / sum', ex: 'avg(ResultType)', why: 'Standard numeric aggregates, used the same way inside a `summarize` as `count()`.' },
+      { name: 'arg_max / arg_min(val, *)', ex: 'arg_max(TimeGenerated, *)', why: 'Returns the ENTIRE row where a value is highest/lowest per group — not just the value itself. This is how you get "the most recent event per user" with every column intact.' },
+      { name: 'make_set(Col)', ex: 'make_set(RemoteUrl)', why: 'The aggregate version of `distinct` — collects unique values into one array per group instead of separate rows. Perfect for a compact per-entity summary.' },
+      { name: 'make_list(Col)', ex: 'make_list(FileName)', why: 'Like make_set, but keeps duplicates and preserves order — use it when the sequence or repeat count of values actually matters.' },
+      { name: 'percentile(Col, N)', ex: 'percentile(Connections, 90)', why: 'Returns the value below which N% of the data falls — how real SOCs establish "what\'s normal" as an actual number instead of a guess.' },
       { name: 'distinct Col', ex: '| distinct UserPrincipalName', why: 'Removes duplicate rows for the column(s) listed — the simplest way to answer "how many unique X are there."' },
     ],
   },
@@ -3568,7 +3716,7 @@ function renderCaseFile() {
 // ---------------- IntelliSense-style autocomplete (Sentinel/KQL-editor-like) ----------------
 const KQL_OP_SUGGESTIONS = ['where', 'project', 'project-away', 'project-rename', 'extend', 'summarize', 'distinct', 'sort by', 'order by', 'take', 'limit', 'top', 'count', 'join', 'union', 'mv-expand', 'let', 'search'].map(l => ({ label: l, type: 'op' }));
 const KQL_KW_SUGGESTIONS = ['and', 'or', 'not', 'in', 'asc', 'desc', 'by', 'kind=inner', 'kind=leftouter', 'kind=leftanti', 'contains', 'has', 'has_any', 'has_all', 'startswith', 'endswith', 'matches regex'].map(l => ({ label: l, type: 'kw' }));
-const KQL_FN_SUGGESTIONS = ['ago(', 'now()', 'count()', 'countif(', 'dcount(', 'avg(', 'min(', 'max(', 'sum(', 'bin(', 'tolower(', 'toupper(', 'isempty(', 'isnotempty(', 'strcat(', 'strlen(', 'tostring(', 'toint(', 'toreal(', 'todatetime(', 'parse_json(', 'iff(', 'case(', 'split(', 'dynamic(', 'round(', 'abs('].map(l => ({ label: l, type: 'fn' }));
+const KQL_FN_SUGGESTIONS = ['ago(', 'now()', 'count()', 'countif(', 'dcount(', 'avg(', 'min(', 'max(', 'sum(', 'bin(', 'tolower(', 'toupper(', 'isempty(', 'isnotempty(', 'strcat(', 'strlen(', 'tostring(', 'toint(', 'toreal(', 'todatetime(', 'parse_json(', 'iff(', 'case(', 'split(', 'dynamic(', 'round(', 'abs(', 'arg_max(', 'arg_min(', 'make_set(', 'make_list(', 'percentile(', 'extract(', 'replace_string(', 'strcat_delim(', 'array_length(', 'todynamic('].map(l => ({ label: l, type: 'fn' }));
 const KQL_TABLE_SUGGESTIONS = Object.keys(TABLE_COLUMNS).map(l => ({ label: l, type: 'table' }));
 const SUGGEST_TYPE_TAG = { op: 'OP', kw: 'KW', fn: 'FN', col: 'COL', table: 'TBL' };
 
@@ -3865,7 +4013,12 @@ function doAction(action, el) {
     case 'reset-case-query': { state._caseDraftQuery = ''; render(); break; }
     case 'submit-case-answers': submitCaseAnswers(); render(); break;
     case 'toggle-case-answers': state.caseShowAnswers = !state.caseShowAnswers; render(); break;
-    case 'toggle-mute': state.player.muted = !state.player.muted; savePlayer(); render(); break;
+    case 'toggle-theme': {
+      state.player.theme = state.player.theme === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', state.player.theme);
+      savePlayer(); render();
+      break;
+    }
     case 'open-reset-confirm': state.showResetConfirm = true; render(); break;
     case 'cancel-reset': state.showResetConfirm = false; render(); break;
     case 'confirm-reset': resetProgress().then(render); break;
@@ -3966,6 +4119,7 @@ async function main() {
   // backfill any missing fields for players saved by an earlier version of the schema
   const fresh = freshPlayer();
   Object.keys(fresh).forEach(k => { if (state.player[k] === undefined) state.player[k] = fresh[k]; });
+  document.documentElement.setAttribute('data-theme', state.player.theme || 'dark');
   state.screen = state.player.name ? 'dashboard' : 'onboarding';
   render();
 }
