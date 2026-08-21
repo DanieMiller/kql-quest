@@ -4093,7 +4093,7 @@ function renderSuggestBox(ta) {
     <div class="suggest-item ${i === suggestState.index ? 'active' : ''}" data-idx="${i}">
       <span class="suggest-type suggest-type-${it.type}">${SUGGEST_TYPE_TAG[it.type]}</span>
       <span class="suggest-label">${esc(it.label)}</span>
-    </div>`).join('') + `<div class="suggest-footer">↑↓ navigate · Tab/Enter accept · Esc dismiss</div>`;
+    </div>`).join('') + `<div class="suggest-footer">↑↓ navigate · Tab to accept · Enter for new line · Esc dismiss</div>`;
   box.style.display = 'block';
   box.querySelectorAll('.suggest-item').forEach(el => {
     el.addEventListener('mousedown', (e) => { e.preventDefault(); suggestState.index = +el.dataset.idx; acceptSuggestion(ta); });
@@ -4152,7 +4152,12 @@ function setupKqlEditor(taId, gutterId, getDatasets, onDraftChange, runActionNam
     if (suggestState.items.length) {
       if (e.key === 'ArrowDown') { e.preventDefault(); suggestState.index = (suggestState.index + 1) % suggestState.items.length; renderSuggestBox(ta); return; }
       if (e.key === 'ArrowUp') { e.preventDefault(); suggestState.index = (suggestState.index - 1 + suggestState.items.length) % suggestState.items.length; renderSuggestBox(ta); return; }
-      if (e.key === 'Tab' || e.key === 'Enter') { e.preventDefault(); acceptSuggestion(ta); return; }
+      // Only Tab accepts a suggestion. Enter must always behave like Enter (insert a new
+      // line) — if it also "accepted," pressing Enter after fully typing a word that already
+      // matched a suggestion would silently re-insert the same text and swallow the newline,
+      // making it look like Enter did nothing at all.
+      if (e.key === 'Tab') { e.preventDefault(); acceptSuggestion(ta); return; }
+      if (e.key === 'Enter') { hideSuggestions(); /* fall through to normal newline insertion */ }
       if (e.key === 'Escape') { hideSuggestions(); return; }
     }
     if (e.key === 'Tab') { e.preventDefault(); const s = ta.selectionStart, en = ta.selectionEnd; ta.value = ta.value.slice(0, s) + '  ' + ta.value.slice(en); ta.selectionStart = ta.selectionEnd = s + 2; sync(); }
